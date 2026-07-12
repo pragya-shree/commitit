@@ -1,13 +1,3 @@
-Rewrite the README.md to make it suitable for a public GitHub repository.
-
-Do not mention "Milestone", development phases, or implementation history.
-
-Do not include screenshot placeholders.
-
-Keep the README clean, simple, and professional.
-
-The README should include only:
-
 # CommitIt
 
 A short description of the project.
