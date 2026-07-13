@@ -4,6 +4,8 @@ API routes for version 1 of the CommitIt backend.
 
 from fastapi import APIRouter, HTTPException, Query
 
+from app.core.logging import get_logger
+from app.models.ai import AIExplainRequest, AIExplainResponse
 from app.models.context import ContextRequest, ContextResponse
 from app.models.explanation import ExplanationRequest, ExplanationResponse
 from app.models.graph import DependencyGraphResponse
@@ -27,6 +29,8 @@ from app.services.git_service import (
     clone_repository,
 )
 from app.services.knowledge_service import KnowledgeNotBuiltError, get_or_build, get_required
+from app.services.llm import provider_factory
+from app.services.llm.base import ProviderRequestError, ProviderUnavailableError, UnknownProviderError
 from app.services.repository_store import (
     RepositoryPathMissingError,
     UnknownRepositoryIDError,
@@ -34,6 +38,7 @@ from app.services.repository_store import (
 )
 
 router = APIRouter()
+logger = get_logger(__name__)
 
 
 @router.get("/health", summary="Health check", tags=["Health"])
@@ -341,3 +346,65 @@ def build_explanation(repository_id: str, request: ExplanationRequest) -> Explan
     context = context_service.build_context(model, request.question)
     explanation = explanation_service.explain(context)
     return ExplanationResponse(success=True, repository_id=repository_id, explanation=explanation)
+
+
+@router.post(
+    "/repository/{repository_id}/ai/explain",
+    response_model=AIExplainResponse,
+    summary="Generate an AI-powered explanation, with automatic deterministic fallback",
+    tags=["AI"],
+)
+def ai_explain(repository_id: str, request: AIExplainRequest) -> AIExplainResponse:
+    """
+    Answer `question` using an LLM provider when one is configured and
+    working, and the deterministic Explanation Engine otherwise. The
+    Explanation Engine is the permanent fallback: an unavailable or
+    failing LLM provider never crashes this endpoint, it just falls back.
+
+    `request.provider` can force a specific provider:
+    - "gemini": use Gemini (falls back if not configured or the call fails)
+    - "mock": use the deterministic Mock provider (always succeeds, no network)
+    - "deterministic": skip the LLM layer entirely and use the Explanation
+      Engine directly (not a fallback — this is a deliberate choice)
+    - omitted: auto-select (Gemini if configured, otherwise deterministic)
+
+    Never rescans, reparses, or rebuilds the Knowledge Model — like the
+    other read-only endpoints, it 404s if nothing's cached yet.
+    """
+    model = _get_knowledge_or_404(repository_id)
+    context = context_service.build_context(model, request.question)
+
+    if request.provider == "deterministic":
+        answer = explanation_service.explain_as_text(context)
+        return AIExplainResponse(
+            success=True, repository_id=repository_id, provider="deterministic",
+            answer=answer, fallback_used=False,
+        )
+
+    provider_name = request.provider or provider_factory.default_provider_name()
+
+    if provider_name == "deterministic":
+        # No provider requested and none configured — go straight to the
+        # deterministic engine; this is the app's normal fallback state.
+        answer = explanation_service.explain_as_text(context)
+        return AIExplainResponse(
+            success=True, repository_id=repository_id, provider="deterministic",
+            answer=answer, fallback_used=True,
+        )
+
+    try:
+        provider = provider_factory.get_provider(provider_name)
+        answer = provider.generate_explanation(request.question, context)
+        return AIExplainResponse(
+            success=True, repository_id=repository_id, provider=provider.name,
+            answer=answer, fallback_used=False,
+        )
+    except UnknownProviderError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except (ProviderUnavailableError, ProviderRequestError) as exc:
+        logger.warning("LLM provider '%s' unavailable, falling back to deterministic: %s", provider_name, exc)
+        answer = explanation_service.explain_as_text(context)
+        return AIExplainResponse(
+            success=True, repository_id=repository_id, provider="deterministic",
+            answer=answer, fallback_used=True,
+        )

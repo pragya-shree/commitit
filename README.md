@@ -1,63 +1,226 @@
 # CommitIt
 
-A short description of the project.
+An AI-powered codebase understanding platform that analyzes GitHub repositories and helps developers quickly understand project architecture, dependencies, and implementation details through intelligent search and natural language explanations.
 
-## Overview
-
-Explain what CommitIt is and the problem it solves.
+---
 
 ## Features
 
-Describe the current capabilities of the backend, including:
+- Clone and analyze any public GitHub repository
+- Build a structured knowledge model of the codebase
+- Parse source files to extract classes, functions, imports, and modules
+- Generate dependency graphs
+- Search code symbols and files
+- Semantic repository queries
+- Context generation for developer questions
+- Deterministic explanation engine
+- Optional Gemini AI integration with automatic fallback
+- REST API built with FastAPI
 
-* Clone and analyze GitHub repositories
-* Scan repository structure
-* Parse Python source code
-* Build a dependency graph
-* Create a cached repository knowledge model
-* Query classes, functions, files, imports, and relationships
-* Generate structured context for developer questions
-* Produce deterministic explanations from repository context
-* REST API for repository analysis
-
-## Architecture
-
-Briefly explain how the backend works from repository analysis to explanation generation.
-
-## Project Structure
-
-Show the folder structure.
-
-## API Endpoints
-
-Provide a concise table of all available endpoints.
+---
 
 ## Tech Stack
 
-List the technologies used.
+### Backend
+
+- Python
+- FastAPI
+- Pydantic
+- GitPython
+
+### AI
+
+- Google Gemini API (optional)
+- Deterministic explanation engine (offline fallback)
+
+### Testing
+
+- Pytest
+
+---
+
+## Project Structure
+
+```text
+backend/
+│
+├── app/
+│   ├── api/
+│   ├── core/
+│   ├── models/
+│   ├── services/
+│   │   └── llm/
+│   └── utils/
+│
+├── tests/
+├── requirements.txt
+├── run.py
+└── README.md
+```
+
+---
+
+## API Overview
+
+### Repository
+
+- Clone Repository
+- Repository Health
+
+### Analysis
+
+- Scan Repository
+- Parse Repository
+- Dependency Graph
+- Knowledge Model
+
+### Query Engine
+
+- List Classes
+- List Functions
+- List Imports
+- List Files
+- Symbol Search
+- Relationship Search
+
+### AI Features
+
+- Context Builder
+- Explanation Engine
+- AI Explain Endpoint
+
+---
 
 ## Installation
 
-Explain how to install dependencies and run the backend.
+Clone the repository
 
-## Running Tests
+```bash
+git clone https://github.com/pragya-shree/commitit.git
+cd commitit/backend
+```
 
-Explain how to execute the test suite.
+Create a virtual environment
 
-## Future Improvements
+```bash
+python -m venv .venv
+```
 
-Briefly mention future plans such as:
+Activate it
 
-* LLM integration
-* Interactive chat interface
-* Frontend application
+Windows
 
-Do not claim these features already exist.
+```bash
+.venv\Scripts\activate
+```
+
+Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+Create a `.env` file
+
+```env
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-2.5-flash
+```
+
+The Gemini API key is optional. If it is not provided, CommitIt automatically falls back to its deterministic explanation engine.
+
+---
+
+## Run
+
+```bash
+python run.py
+```
+
+The API will be available at
+
+```
+http://localhost:8000
+```
+
+Interactive documentation
+
+```
+http://localhost:8000/docs
+```
+
+---
+
+## Architecture
+
+```
+GitHub Repository
+        │
+        ▼
+ Repository Clone
+        │
+        ▼
+ Repository Scanner
+        │
+        ▼
+ Source Parser
+        │
+        ▼
+ Dependency Graph
+        │
+        ▼
+ Knowledge Model
+        │
+        ▼
+ Query Engine
+        │
+        ▼
+ Context Builder
+        │
+        ▼
+ Explanation Engine
+        │
+        ▼
+ Optional Gemini AI
+```
+
+---
+
+## Design Highlights
+
+- Single-build repository analysis
+- Cached in-memory knowledge model
+- Read-only query layer
+- Deterministic explanation pipeline
+- Optional AI enhancement
+- Automatic fallback when AI is unavailable
+- No databases
+- No Redis
+- No Docker required
+
+---
+
+## Testing
+
+Run all tests
+
+```bash
+pytest
+```
+
+---
+
+## Future Work
+
+- Support additional LLM providers
+- Repository visualization
+- Interactive frontend
+- Multi-repository analysis
+- Conversation memory
+- Code editing assistance
+
+---
 
 ## License
 
-Use an MIT License section if appropriate.
-
-Keep the writing concise, readable, and professional.
-
-Do not invent features that are not implemented.
+This project is licensed under the MIT License.

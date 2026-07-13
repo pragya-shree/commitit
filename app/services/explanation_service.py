@@ -226,3 +226,27 @@ def explain(context: dict) -> dict:
         "dependency_explanations": dependency_explanations,
         "summary": _build_summary(context),
     }
+
+
+def render_text(explanation: dict) -> str:
+    """
+    Flatten an explanation object (as returned by explain()) into a single
+    plain-text answer: repository overview, architecture overview, then
+    each class/function/dependency/file explanation, then the summary.
+
+    Used wherever a single answer string is needed instead of the full
+    structured object — e.g. the deterministic Explanation Engine fallback
+    behind the AI endpoints, or grounding text handed to an LLM provider.
+    """
+    sections = [explanation["repository_overview"], explanation["architecture_overview"]]
+    sections.extend(cls["explanation"] for cls in explanation["class_explanations"])
+    sections.extend(func["explanation"] for func in explanation["function_explanations"])
+    sections.extend(dep["explanation"] for dep in explanation["dependency_explanations"])
+    sections.extend(file_exp["explanation"] for file_exp in explanation["file_explanations"])
+    sections.append(explanation["summary"])
+    return "\n\n".join(sections)
+
+
+def explain_as_text(context: dict) -> str:
+    """Convenience: build the explanation object from context and flatten it to text in one call."""
+    return render_text(explain(context))

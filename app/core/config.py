@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
 
+    # Optional Gemini LLM configuration (Milestone 9). If GEMINI_API_KEY
+    # is not set, the AI endpoints automatically fall back to the
+    # deterministic Explanation Engine — the app never requires this.
+    GEMINI_API_KEY: str | None = None
+    GEMINI_MODEL: str = "gemini-1.5-flash"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
