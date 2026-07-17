@@ -1,0 +1,142 @@
+import { useMemo, useState } from "react";
+import { cn } from "@/utils/cn";
+import { brand } from "@/theme";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+import { ConnectionLayer } from "./ConnectionLayer";
+import { RepositoryNode } from "./RepositoryNode";
+import { OrbitingNode } from "./OrbitingNode";
+import type { NodeVisualState, RepositoryUniverseData } from "./types";
+
+/**
+ * RepositoryUniverse — the interactive graph: a central repository node
+ * with its folders orbiting around it, connected by animated lines.
+ *
+ * Highlighting is driven by an "active" node id that falls back from
+ * live hover to a controlled `selectedNodeId`: `activeId = hoveredNodeId
+ * ?? selectedNodeId ?? null`. That means hovering any node always shows
+ * a live preview of its connections, but once the pointer leaves, the
+ * currently *selected* node's highlight (if any) reappears underneath —
+ * selection persists, hover is just a temporary preview on top of it.
+ * `onNodeSelect` fires on click (and Enter/Space, since nodes are real
+ * buttons), letting a parent open something like AIExplanationPanel
+ * without this component knowing anything about explanations.
+ *
+ * Future backend integration point: everything here renders from a
+ * single `data: RepositoryUniverseData` prop (see types.ts). A real
+ * integration would replace `mockUniverseData` with a value built from
+ * the backend's Knowledge Model / Context Builder response — e.g. one
+ * `RepositoryNodeData` per top-level directory, with `connections`
+ * derived from the dependency graph — without any component in this
+ * module changing. The only other seam is `RepositoryConnectionData`
+ * using plain string ids ("root" for the center); a real integration
+ * just needs those ids to be stable across data updates.
+ *
+ * Layout: nodes are positioned in a fixed-size coordinate space (a
+ * 440×440 stage, computed once from `data.nodes`), not a responsive one.
+ * The *whole stage* is scaled down via CSS `transform: scale()` at
+ * smaller breakpoints instead of recomputing positions — that keeps the
+ * SVG connection layer (which scales via its `viewBox`) and the
+ * absolutely-positioned HTML nodes (which use raw pixel offsets)
+ * perfectly aligned at every size, since one shared `scale()` on the
+ * common parent affects both layers identically. Trying to make the
+ * pixel-based offsets themselves responsive would desync them from the
+ * SVG's independently-scaling coordinate space.
+ *
+ * No continuous rotation of the whole graph (unlike HeroVisual/
+ * AnalysisVisual) — those are purely decorative, but this graph needs to
+ * be reliably hoverable, and a moving target fights usability. Life
+ * instead comes from each node's small independent float and the
+ * traveling connection pulses.
+ */
+
+const RADIUS = 170;
+
+function computePositions(nodeIds: string[]): Record<string, { x: number; y: number }> {
+  const positions: Record<string, { x: number; y: number }> = { root: { x: 0, y: 0 } };
+  nodeIds.forEach((id, index) => {
+    const angle = (index / nodeIds.length) * Math.PI * 2 - Math.PI / 2;
+    positions[id] = {
+      x: Math.round(RADIUS * Math.cos(angle)),
+      y: Math.round(RADIUS * Math.sin(angle)),
+    };
+  });
+  return positions;
+}
+
+interface RepositoryUniverseProps {
+  data: RepositoryUniverseData;
+  /** Controlled selection — typically the node id an explanation panel is currently showing. */
+  selectedNodeId?: string | null;
+  onNodeSelect?: (id: string) => void;
+  className?: string;
+}
+
+export function RepositoryUniverse({ data, selectedNodeId = null, onNodeSelect, className }: RepositoryUniverseProps) {
+  const reduceMotion = usePrefersReducedMotion();
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const activeId = hoveredNodeId ?? selectedNodeId;
+
+  const positions = useMemo(() => computePositions(data.nodes.map((node) => node.id)), [data.nodes]);
+
+  const relatedNodeIds = useMemo(() => {
+    const related = new Set<string>();
+    if (!activeId) return related;
+    for (const connection of data.connections) {
+      if (connection.from === activeId) related.add(connection.to);
+      if (connection.to === activeId) related.add(connection.from);
+    }
+    return related;
+  }, [activeId, data.connections]);
+
+  function statusFor(id: string): NodeVisualState {
+    if (activeId === null) return "default";
+    if (id === activeId) return "hovered";
+    if (relatedNodeIds.has(id)) return "related";
+    return "dimmed";
+  }
+
+  const colorMap = useMemo(() => {
+    const map: Record<string, string> = { root: brand.coral };
+    data.nodes.forEach((node) => {
+      map[node.id] = node.color;
+    });
+    return map;
+  }, [data.nodes]);
+
+  return (
+    <div
+      className={cn("relative mx-auto h-[440px] w-[440px] scale-[0.65] sm:scale-[0.85] lg:scale-100", className)}
+    >
+      <ConnectionLayer
+        connections={data.connections}
+        positions={positions}
+        colorFor={(id) => colorMap[id] ?? brand.violet}
+        activeNodeId={activeId}
+        reduceMotion={reduceMotion}
+      />
+
+      <RepositoryNode
+        label={data.root.label}
+        meta={data.root.meta}
+        state={statusFor("root")}
+        selected={selectedNodeId === "root"}
+        onHoverStart={() => setHoveredNodeId("root")}
+        onHoverEnd={() => setHoveredNodeId(null)}
+        onSelect={() => onNodeSelect?.("root")}
+      />
+
+      {data.nodes.map((node) => (
+        <OrbitingNode
+          key={node.id}
+          node={node}
+          position={positions[node.id]}
+          state={statusFor(node.id)}
+          selected={selectedNodeId === node.id}
+          onHoverStart={() => setHoveredNodeId(node.id)}
+          onHoverEnd={() => setHoveredNodeId(null)}
+          onSelect={() => onNodeSelect?.(node.id)}
+        />
+      ))}
+    </div>
+  );
+}

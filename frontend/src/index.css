@@ -1,0 +1,142 @@
+@import "tailwindcss";
+
+/* Display face: Bricolage Grotesque — a characterful, slightly wonky
+   grotesque with real personality at large sizes. Loaded at the weights
+   we actually use so the bundle doesn't carry every cut. */
+@import "@fontsource/bricolage-grotesque/500.css";
+@import "@fontsource/bricolage-grotesque/600.css";
+@import "@fontsource/bricolage-grotesque/700.css";
+@import "@fontsource/bricolage-grotesque/800.css";
+
+/* Body face: Plus Jakarta Sans — clean geometric humanist, quieter than
+   the display face, still warm rather than clinical. */
+@import "@fontsource/plus-jakarta-sans/400.css";
+@import "@fontsource/plus-jakarta-sans/500.css";
+@import "@fontsource/plus-jakarta-sans/600.css";
+@import "@fontsource/plus-jakarta-sans/700.css";
+
+/* Utility/mono face: JetBrains Mono — for file paths, code, and small
+   data readouts, so the product visibly speaks "developer tool". */
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
+
+@theme {
+  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+
+  /* Base — deep aubergine-black, deliberately not navy, so warm
+     gradients read as glowing rather than sitting on "the usual" dark
+     blue dashboard background. */
+  --color-void-950: #0d0817;
+  --color-void-900: #140c22;
+  --color-void-800: #1d132e;
+  --color-void-700: #291b3e;
+  --color-void-600: #382852;
+
+  /* Signature palette — warm coral/amber/magenta carry the most visual
+     weight; violet supplies depth/shadow rather than dominance; mint is
+     the "healthy/alive" signal color; cyan is a rare accent only. */
+  --color-coral: #ff6b52;
+  --color-coral-light: #ff9478;
+  --color-amber: #ffb84d;
+  --color-magenta: #ff4fa3;
+  --color-violet: #8b5cf6;
+  --color-violet-deep: #6d28d9;
+  --color-mint: #2fe6b8;
+  --color-cyan: #22d3ee;
+
+  --color-ink: #f5f1ff;
+  --color-ink-dim: #c9bfe0;
+  --color-ink-faint: #8b7fa8;
+
+  --shadow-glow-coral: 0 0 60px -12px rgba(255, 107, 82, 0.55);
+  --shadow-glow-violet: 0 0 60px -12px rgba(139, 92, 246, 0.5);
+  --shadow-glow-mint: 0 0 60px -12px rgba(47, 230, 184, 0.45);
+
+  --animate-drift: drift 22s ease-in-out infinite;
+  --animate-drift-slow: drift 34s ease-in-out infinite;
+  --animate-twinkle: twinkle 3.2s ease-in-out infinite;
+  --animate-spin-slow: spin 40s linear infinite;
+  --animate-spin-slower: spin 70s linear infinite;
+
+  @keyframes drift {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    33% { transform: translate3d(3%, -4%, 0) scale(1.05); }
+    66% { transform: translate3d(-3%, 3%, 0) scale(0.97); }
+  }
+
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.25; }
+    50% { opacity: 1; }
+  }
+}
+
+@layer base {
+  * {
+    @apply border-void-700/50;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-void-950 text-ink font-body antialiased;
+    font-feature-settings: "ss01" 1, "cv01" 1;
+  }
+
+  ::selection {
+    background-color: color-mix(in oklab, var(--color-magenta) 60%, transparent);
+    color: var(--color-ink);
+  }
+
+  /* Visible, on-brand keyboard focus — never suppressed, only restyled. */
+  :focus-visible {
+    outline: 2px solid var(--color-mint);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-void-950);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-void-600);
+    border-radius: 999px;
+    border: 2px solid var(--color-void-950);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@utility bg-noise {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 140px 140px;
+}
+
+@utility text-gradient-warm {
+  background-image: linear-gradient(100deg, var(--color-coral) 0%, var(--color-magenta) 55%, var(--color-violet) 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+@utility glass-panel {
+  background-color: color-mix(in oklab, var(--color-void-800) 55%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid color-mix(in oklab, white 10%, transparent);
+}
