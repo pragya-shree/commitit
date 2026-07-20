@@ -4,12 +4,14 @@ import { AnimatedInput, GradientButton } from "@/components/ui";
 
 /**
  * RepositoryUrlForm — the GitHub URL input + "Analyze Repository" button.
- * Its own responsibility is just validating the URL shape; once a
- * plausible GitHub URL is submitted, it hands off to `onAnalyze` rather
- * than running its own loading/success cycle — that experience now lives
- * in AnalysisOverlay, which is a much richer "analysis in progress" view
- * than a button spinner could be. Still no backend integration or real
- * GitHub API call.
+ * Its own responsibility is just validating the URL *shape* client-side
+ * (fast feedback, no wasted network call on obviously-invalid input);
+ * once that passes, it hands off to `onAnalyze` and defers to whatever
+ * the caller does next. The actual clone request (POST
+ * /repository/clone) is owned by Hero, not this component — Hero passes
+ * `cloneLoading`/`cloneError` back down so this form can show the real
+ * outcome (a failed clone, e.g. a private or nonexistent repo) using the
+ * exact same error-state UI as a client-side validation failure.
  */
 
 type FormStatus = "idle" | "error";
@@ -17,11 +19,15 @@ type FormStatus = "idle" | "error";
 const GITHUB_URL_PATTERN = /^https?:\/\/github\.com\/[\w.-]+\/[\w.-]+\/?$/i;
 
 interface RepositoryUrlFormProps {
-  /** Called with the trimmed URL once it passes validation. */
+  /** Called with the trimmed URL once it passes client-side validation. */
   onAnalyze?: (url: string) => void;
+  /** Whether the real clone request (triggered by a previous onAnalyze) is in flight. */
+  cloneLoading?: boolean;
+  /** Error message from a failed real clone request, if any. */
+  cloneError?: string | null;
 }
 
-export function RepositoryUrlForm({ onAnalyze }: RepositoryUrlFormProps) {
+export function RepositoryUrlForm({ onAnalyze, cloneLoading = false, cloneError = null }: RepositoryUrlFormProps) {
   const [url, setUrl] = useState("");
   const [status, setStatus] = useState<FormStatus>("idle");
 
@@ -43,7 +49,10 @@ export function RepositoryUrlForm({ onAnalyze }: RepositoryUrlFormProps) {
     onAnalyze?.(trimmed);
   }
 
-  const helperText = status === "error" ? "Enter a valid GitHub repository URL, e.g. https://github.com/vercel/next.js" : undefined;
+  const validationError =
+    status === "error" ? "Enter a valid GitHub repository URL, e.g. https://github.com/vercel/next.js" : null;
+  const helperText = validationError ?? cloneError ?? undefined;
+  const hasError = validationError !== null || cloneError !== null;
 
   return (
     <form onSubmit={handleSubmit} noValidate className="flex w-full flex-col gap-3 sm:flex-row sm:items-start">
@@ -55,13 +64,14 @@ export function RepositoryUrlForm({ onAnalyze }: RepositoryUrlFormProps) {
           leadingIcon={GitBranch}
           value={url}
           onChange={handleChange}
-          state={status === "error" ? "error" : "default"}
+          state={hasError ? "error" : "default"}
           helperText={helperText}
           aria-label="GitHub repository URL"
+          disabled={cloneLoading}
         />
       </div>
 
-      <GradientButton type="submit" size="lg" rightIcon={ArrowRight} className="shrink-0">
+      <GradientButton type="submit" size="lg" rightIcon={ArrowRight} loading={cloneLoading} className="shrink-0">
         Analyze Repository
       </GradientButton>
     </form>

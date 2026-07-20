@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/animations";
 import { transition as motionTransition, brand } from "@/theme";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+import { GradientButton } from "@/components/ui";
 import { ExplanationHeader } from "./ExplanationHeader";
 import { ExplanationCard } from "./ExplanationCard";
 import { RelatedFiles } from "./RelatedFiles";
@@ -17,12 +18,18 @@ import type { NodeExplanation } from "./types";
  * there's no message history, no input box, just the current node's
  * explanation appearing as if it surfaced directly from the graph.
  *
- * Future backend integration point: `explanation` is the only data this
- * component needs — a real integration swaps `mockExplanationData`
- * (looked up by whatever composes this panel, e.g. UniversePage) for a
- * live call to the Context Builder / Explanation Engine, keyed by the
- * same node id the graph already uses. Nothing in this component or its
- * children needs to change for that swap.
+ * `title` is decoupled from `explanation` on purpose: the node's label
+ * is already known the instant it's clicked (no backend round trip
+ * needed for that), so the header appears immediately while the actual
+ * explanation loads — `loading` shows TypingIndicator in the body below
+ * a header that's already correct, rather than the whole panel waiting
+ * on the network before showing anything.
+ *
+ * Backend integration: `explanation`/`loading`/`error`/`onRetry` are
+ * driven by whatever composes this panel (UniversePage, via
+ * useApiRequest calling POST /repository/{id}/explanation and
+ * mapExplanationToNodeExplanation). This component has no fetching
+ * logic of its own — it only renders whatever state it's handed.
  *
  * Uses the `glass-panel` utility class directly rather than the
  * GlassPanel component — GlassPanel applies one uniform border-radius to
@@ -35,37 +42,32 @@ import type { NodeExplanation } from "./types";
 
 interface AIExplanationPanelProps {
   open: boolean;
+  /** The selected node's label — known immediately on click, independent of whether `explanation` has loaded yet. */
+  title: string | null;
   explanation: NodeExplanation | null;
+  loading?: boolean;
+  error?: string | null;
   /** Accent color for the header dot/glow — typically the selected node's brand color. */
   accentColor?: string;
   onClose: () => void;
+  onRetry?: () => void;
 }
 
-const REVEAL_DELAY_MS = 550;
-
-export function AIExplanationPanel({ open, explanation, accentColor = brand.coral, onClose }: AIExplanationPanelProps) {
+export function AIExplanationPanel({
+  open,
+  title,
+  explanation,
+  loading = false,
+  error = null,
+  accentColor = brand.coral,
+  onClose,
+  onRetry,
+}: AIExplanationPanelProps) {
   const reduceMotion = usePrefersReducedMotion();
-  const [isRevealing, setIsRevealing] = useState(false);
-  const lastNodeIdRef = useRef<string | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Briefly show TypingIndicator whenever the selected node actually
-  // changes (not on every re-render) — sells the "knowledge emerging"
-  // feeling on each switch without being slow enough to annoy.
   useEffect(() => {
-    if (!explanation || explanation.nodeId === lastNodeIdRef.current) return;
-    lastNodeIdRef.current = explanation.nodeId;
-    setIsRevealing(true);
-    const timeout = window.setTimeout(() => setIsRevealing(false), REVEAL_DELAY_MS);
-    return () => window.clearTimeout(timeout);
-  }, [explanation]);
-
-  useEffect(() => {
-    if (!open) {
-      lastNodeIdRef.current = null;
-      return;
-    }
-    closeButtonRef.current?.focus();
+    if (open) closeButtonRef.current?.focus();
   }, [open]);
 
   // Escape-to-close — a lightweight nod to dialog semantics without
@@ -103,19 +105,23 @@ export function AIExplanationPanel({ open, explanation, accentColor = brand.cora
             transition={motionTransition.springSoft}
           >
             <div className="flex flex-1 flex-col overflow-hidden p-6">
-              {explanation ? (
+              {title ? (
                 <>
-                  <ExplanationHeader
-                    title={explanation.title}
-                    accentColor={accentColor}
-                    onClose={onClose}
-                    closeButtonRef={closeButtonRef}
-                  />
+                  <ExplanationHeader title={title} accentColor={accentColor} onClose={onClose} closeButtonRef={closeButtonRef} />
 
                   <div className="flex-1 overflow-y-auto pt-6">
-                    {isRevealing ? (
+                    {loading ? (
                       <TypingIndicator />
-                    ) : (
+                    ) : error ? (
+                      <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+                        <p className="max-w-[240px] text-sm text-ink-dim">{error}</p>
+                        {onRetry && (
+                          <GradientButton variant="secondary" size="sm" onClick={onRetry}>
+                            Try again
+                          </GradientButton>
+                        )}
+                      </div>
+                    ) : explanation ? (
                       <motion.div
                         className="flex flex-col gap-6"
                         variants={staggerContainer({ reduceMotion })}
@@ -130,33 +136,37 @@ export function AIExplanationPanel({ open, explanation, accentColor = brand.cora
                           <ExplanationCard label="Purpose">{explanation.purpose}</ExplanationCard>
                         </motion.div>
 
-                        <motion.div variants={staggerItem({ reduceMotion })}>
-                          <ExplanationCard label="Responsibilities">
-                            <ul className="flex flex-col gap-1.5">
-                              {explanation.responsibilities.map((item) => (
-                                <li key={item} className="flex gap-2">
-                                  <span className="text-coral">•</span>
-                                  {item}
-                                </li>
-                              ))}
-                            </ul>
-                          </ExplanationCard>
-                        </motion.div>
+                        {explanation.responsibilities.length > 0 && (
+                          <motion.div variants={staggerItem({ reduceMotion })}>
+                            <ExplanationCard label="Responsibilities">
+                              <ul className="flex flex-col gap-1.5">
+                                {explanation.responsibilities.map((item) => (
+                                  <li key={item} className="flex gap-2">
+                                    <span className="text-coral">•</span>
+                                    {item}
+                                  </li>
+                                ))}
+                              </ul>
+                            </ExplanationCard>
+                          </motion.div>
+                        )}
 
-                        <motion.div variants={staggerItem({ reduceMotion })}>
-                          <ExplanationCard label="Technologies">
-                            <div className="flex flex-wrap gap-2">
-                              {explanation.technologies.map((tech) => (
-                                <span
-                                  key={tech}
-                                  className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-ink-dim"
-                                >
-                                  {tech}
-                                </span>
-                              ))}
-                            </div>
-                          </ExplanationCard>
-                        </motion.div>
+                        {explanation.technologies.length > 0 && (
+                          <motion.div variants={staggerItem({ reduceMotion })}>
+                            <ExplanationCard label="Technologies">
+                              <div className="flex flex-wrap gap-2">
+                                {explanation.technologies.map((tech) => (
+                                  <span
+                                    key={tech}
+                                    className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-ink-dim"
+                                  >
+                                    {tech}
+                                  </span>
+                                ))}
+                              </div>
+                            </ExplanationCard>
+                          </motion.div>
+                        )}
 
                         {explanation.keyRelationships.length > 0 && (
                           <motion.div variants={staggerItem({ reduceMotion })}>
@@ -183,6 +193,8 @@ export function AIExplanationPanel({ open, explanation, accentColor = brand.cora
                           </motion.div>
                         )}
                       </motion.div>
+                    ) : (
+                      <EmptyExplanationState onClose={onClose} />
                     )}
                   </div>
                 </>

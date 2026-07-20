@@ -8,14 +8,24 @@ type View = "landing" | "universe" | "dashboard";
 
 function App() {
   const [view, setView] = useState<View>("landing");
+  const [repositoryId, setRepositoryId] = useState<string | null>(null);
+
+  function handleAnalysisComplete(id: string) {
+    setRepositoryId(id);
+    setView("universe");
+  }
 
   return (
     <>
       <AnimatedBackground />
       <main className="relative z-10">
-        {view === "landing" && <Hero onAnalysisComplete={() => setView("universe")} />}
-        {view === "universe" && <UniversePage onViewDashboard={() => setView("dashboard")} />}
-        {view === "dashboard" && <DashboardPage onBack={() => setView("universe")} />}
+        {view === "landing" && <Hero onAnalysisComplete={handleAnalysisComplete} />}
+        {view === "universe" && repositoryId && (
+          <UniversePage repositoryId={repositoryId} onViewDashboard={() => setView("dashboard")} />
+        )}
+        {view === "dashboard" && repositoryId && (
+          <DashboardPage repositoryId={repositoryId} onBack={() => setView("universe")} />
+        )}
       </main>
     </>
   );

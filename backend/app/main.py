@@ -16,6 +16,8 @@ from app.api.routes import router as api_router
 from app.core.config import settings
 from app.core.logging import get_logger, setup_logging
 
+from fastapi.middleware.cors import CORSMiddleware
+
 setup_logging()
 logger = get_logger(__name__)
 
@@ -33,6 +35,16 @@ app = FastAPI(
     version=settings.VERSION,
     description="AI-powered platform for understanding codebases.",
     lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
