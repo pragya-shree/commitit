@@ -2,7 +2,14 @@
 API routes for version 1 of the CommitIt backend.
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from pathlib import Path
+from fastapi import APIRouter, Depends, HTTPException, Query
+from app.services.auth_service import require_repository_owner, get_current_user
+from app.models.auth import UserRepository, User
+from sqlalchemy.orm import Session
+from app.db.database import get_db
+from app.services.repository_store import compute_folder_stats
+from app.core.config import settings
 
 from app.core.logging import get_logger
 from app.models.ai import AIExplainRequest, AIExplainResponse
@@ -38,6 +45,9 @@ from app.services.repository_store import (
 )
 
 router = APIRouter()
+from app.api.auth import router as auth_router
+router.include_router(auth_router)
+
 logger = get_logger(__name__)
 
 
@@ -53,10 +63,14 @@ def health_check() -> dict:
     summary="Clone a public GitHub repository",
     tags=["Repository"],
 )
-def clone_repo(request: CloneRequest) -> CloneResponse:
+def clone_repo(
+    request: CloneRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> CloneResponse:
     """Validate, clone, and return metadata for a public GitHub repository."""
     try:
-        result = clone_repository(request.github_url)
+        result = clone_repository(request.github_url, current_user.id, db)
     except InvalidRepositoryURLError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RepositoryNotFoundError as exc:
@@ -77,7 +91,10 @@ def clone_repo(request: CloneRequest) -> CloneResponse:
     summary="Scan a previously cloned repository",
     tags=["Repository"],
 )
-def scan_repo(repository_id: str) -> ScanResponse:
+def scan_repo(
+    repository_id: str,
+    repo: UserRepository = Depends(require_repository_owner),
+) -> ScanResponse:
     """Scan a repository that was already cloned, identified by repository_id."""
     try:
         local_path = resolve(repository_id)
@@ -107,7 +124,10 @@ def scan_repo(repository_id: str) -> ScanResponse:
     summary="Parse the Python source of a previously cloned repository",
     tags=["Repository"],
 )
-def parse_repo(repository_id: str) -> ParseResponse:
+def parse_repo(
+    repository_id: str,
+    repo: UserRepository = Depends(require_repository_owner),
+) -> ParseResponse:
     """Parse Python files in a repository that was already cloned, via ast."""
     try:
         local_path = resolve(repository_id)
@@ -135,7 +155,10 @@ def parse_repo(repository_id: str) -> ParseResponse:
     summary="Build a deterministic dependency graph for a previously cloned repository",
     tags=["Repository"],
 )
-def dependency_graph(repository_id: str) -> DependencyGraphResponse:
+def dependency_graph(
+    repository_id: str,
+    repo: UserRepository = Depends(require_repository_owner),
+) -> DependencyGraphResponse:
     """Build a graph of imports, inheritance, and calls for a cloned repository."""
     try:
         local_path = resolve(repository_id)
@@ -164,7 +187,10 @@ def dependency_graph(repository_id: str) -> DependencyGraphResponse:
     summary="Get the complete Knowledge Model for a previously cloned repository",
     tags=["Repository"],
 )
-def knowledge(repository_id: str) -> KnowledgeResponse:
+def knowledge(
+    repository_id: str,
+    repo: UserRepository = Depends(require_repository_owner),
+) -> KnowledgeResponse:
     """
     Return the full Knowledge Model (metadata, scan, parse, and dependency
     graph) for a repository. Built once and cached; later calls for the
@@ -207,6 +233,7 @@ def _get_knowledge_or_404(repository_id: str):
 def query_symbols(
     repository_id: str,
     name: str | None = Query(None, description="Case-insensitive substring filter"),
+    repo: UserRepository = Depends(require_repository_owner),
 ) -> SymbolsResponse:
     """Read-only lookup over the cached Knowledge Model. Never rebuilds."""
     model = _get_knowledge_or_404(repository_id)
@@ -223,6 +250,7 @@ def query_symbols(
 def query_classes(
     repository_id: str,
     name: str | None = Query(None, description="Case-insensitive substring filter"),
+    repo: UserRepository = Depends(require_repository_owner),
 ) -> ClassesResponse:
     """Read-only lookup over the cached Knowledge Model. Never rebuilds."""
     model = _get_knowledge_or_404(repository_id)
@@ -239,6 +267,7 @@ def query_classes(
 def query_functions(
     repository_id: str,
     name: str | None = Query(None, description="Case-insensitive substring filter"),
+    repo: UserRepository = Depends(require_repository_owner),
 ) -> FunctionsResponse:
     """Read-only lookup over the cached Knowledge Model. Never rebuilds."""
     model = _get_knowledge_or_404(repository_id)
@@ -255,6 +284,7 @@ def query_functions(
 def query_imports(
     repository_id: str,
     name: str | None = Query(None, description="Case-insensitive substring filter"),
+    repo: UserRepository = Depends(require_repository_owner),
 ) -> ImportsResponse:
     """Read-only lookup over the cached Knowledge Model. Never rebuilds."""
     model = _get_knowledge_or_404(repository_id)
@@ -271,6 +301,7 @@ def query_imports(
 def query_files(
     repository_id: str,
     name: str | None = Query(None, description="Case-insensitive substring filter on path"),
+    repo: UserRepository = Depends(require_repository_owner),
 ) -> FilesResponse:
     """Read-only lookup over the cached Knowledge Model. Never rebuilds."""
     model = _get_knowledge_or_404(repository_id)
@@ -287,6 +318,7 @@ def query_files(
 def query_relationships(
     repository_id: str,
     symbol: str = Query(..., description="Symbol name to resolve (class, function, or module)"),
+    repo: UserRepository = Depends(require_repository_owner),
 ) -> RelationshipsResponse:
     """Read-only lookup over the cached Knowledge Model. Never rebuilds."""
     model = _get_knowledge_or_404(repository_id)
@@ -303,6 +335,7 @@ def query_relationships(
 def search_repository(
     repository_id: str,
     q: str = Query(..., description="Search query (case-insensitive substring match)"),
+    repo: UserRepository = Depends(require_repository_owner),
 ) -> SearchResponse:
     """Read-only aggregate search over the cached Knowledge Model. Never rebuilds."""
     model = _get_knowledge_or_404(repository_id)
@@ -316,7 +349,11 @@ def search_repository(
     summary="Build a deterministic AI context object for a natural-language question",
     tags=["Query"],
 )
-def build_context(repository_id: str, request: ContextRequest) -> ContextResponse:
+def build_context(
+    repository_id: str,
+    request: ContextRequest,
+    repo: UserRepository = Depends(require_repository_owner),
+) -> ContextResponse:
     """
     Assemble a structured, LLM-ready context object for `question` from
     the cached Knowledge Model: the classes, functions, files, imports,
@@ -334,7 +371,11 @@ def build_context(repository_id: str, request: ContextRequest) -> ContextRespons
     summary="Build a deterministic, human-readable explanation for a natural-language question",
     tags=["Query"],
 )
-def build_explanation(repository_id: str, request: ExplanationRequest) -> ExplanationResponse:
+def build_explanation(
+    repository_id: str,
+    request: ExplanationRequest,
+    repo: UserRepository = Depends(require_repository_owner),
+) -> ExplanationResponse:
     """
     Assemble a structured, human-readable explanation for `question`:
     a repository overview, an architecture overview, and per-file/class/
@@ -354,7 +395,11 @@ def build_explanation(repository_id: str, request: ExplanationRequest) -> Explan
     summary="Generate an AI-powered explanation, with automatic deterministic fallback",
     tags=["AI"],
 )
-def ai_explain(repository_id: str, request: AIExplainRequest) -> AIExplainResponse:
+def ai_explain(
+    repository_id: str,
+    request: AIExplainRequest,
+    repo: UserRepository = Depends(require_repository_owner),
+) -> AIExplainResponse:
     """
     Answer `question` using an LLM provider when one is configured and
     working, and the deterministic Explanation Engine otherwise. The
@@ -408,3 +453,35 @@ def ai_explain(repository_id: str, request: AIExplainRequest) -> AIExplainRespon
             success=True, repository_id=repository_id, provider="deterministic",
             answer=answer, fallback_used=True,
         )
+
+
+@router.get(
+    "/repositories",
+    summary="List all repositories belonging to the authenticated user",
+    tags=["Repository"],
+)
+def list_user_repositories(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list:
+    """Return all repositories belonging to the current user with dynamic disk stats."""
+    repos = db.query(UserRepository).filter(UserRepository.user_id == current_user.id).all()
+    results = []
+    for r in repos:
+        try:
+            path = Path(settings.REPO_STORAGE_DIR) / r.user_id / r.id
+            stats = compute_folder_stats(path)
+        except Exception:
+            stats = {"files": 0, "directories": 0, "size": "0.0 KB"}
+        results.append({
+            "repository_id": r.id,
+            "name": r.name,
+            "github_url": r.github_url,
+            "github_owner": r.github_owner,
+            "github_repo": r.github_repo,
+            "default_branch": r.default_branch,
+            "created_at": r.created_at.isoformat(),
+            **stats
+        })
+    return results
+

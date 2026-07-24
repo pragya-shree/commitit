@@ -101,7 +101,7 @@ def _parse_module(tree: ast.Module, relative_path: Path) -> dict:
     ]
 
     return {
-        "path": str(relative_path),
+        "path": relative_path.as_posix(),
         "docstring": ast.get_docstring(tree),
         "imports": _build_imports(tree),
         "classes": classes,

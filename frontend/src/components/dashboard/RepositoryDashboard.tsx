@@ -34,13 +34,14 @@ import type { RepositoryDashboardData } from "./types";
 
 interface RepositoryDashboardProps {
   data: RepositoryDashboardData;
+  onViewUniverse?: () => void;
 }
 
-export function RepositoryDashboard({ data }: RepositoryDashboardProps) {
+export function RepositoryDashboard({ data, onViewUniverse }: RepositoryDashboardProps) {
   return (
     <div className="flex flex-col">
       <Section spacing="sm" containerSize="wide">
-        <RepositorySummary repository={data.repository} languageBreakdown={data.languageBreakdown} />
+        <RepositorySummary repository={data.repository} languageBreakdown={data.languageBreakdown} onViewUniverse={onViewUniverse} />
       </Section>
 
       <Section spacing="sm" containerSize="wide">

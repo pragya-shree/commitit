@@ -1,4 +1,4 @@
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Sparkles } from "lucide-react";
 import { GlassCard, FloatingBadge } from "@/components/ui";
 import type { LanguageBreakdownEntry, RepositoryDashboardData } from "./types";
 
@@ -12,9 +12,10 @@ import type { LanguageBreakdownEntry, RepositoryDashboardData } from "./types";
 interface RepositorySummaryProps {
   repository: RepositoryDashboardData["repository"];
   languageBreakdown: LanguageBreakdownEntry[];
+  onViewUniverse?: () => void;
 }
 
-export function RepositorySummary({ repository, languageBreakdown }: RepositorySummaryProps) {
+export function RepositorySummary({ repository, languageBreakdown, onViewUniverse }: RepositorySummaryProps) {
   return (
     <GlassCard variant="elevated" padding="lg">
       <div className="flex flex-col gap-6">
@@ -27,9 +28,23 @@ export function RepositorySummary({ repository, languageBreakdown }: RepositoryS
             <p className="max-w-xl text-sm leading-relaxed text-ink-dim">{repository.description}</p>
           </div>
 
-          <FloatingBadge icon={CheckCircle2} color="mint" size="compact" float={false}>
-            Analyzed {repository.analyzedAt}
-          </FloatingBadge>
+          <div className="flex items-center gap-3">
+            {onViewUniverse && (
+              <button
+                onClick={onViewUniverse}
+                className="group relative flex items-center gap-2 rounded-xl bg-gradient-to-r from-coral via-magenta to-violet p-[1px] shadow-[0_0_20px_rgba(255,107,82,0.12)] hover:shadow-[0_0_25px_rgba(255,107,82,0.25)] transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer outline-none border-none"
+              >
+                <div className="flex items-center gap-2 rounded-[11px] bg-void-950 px-4 py-2 text-xs font-bold text-white transition-colors group-hover:bg-transparent">
+                  <Sparkles className="h-3.5 w-3.5 text-coral animate-pulse group-hover:text-white" />
+                  <span>Explore Universe</span>
+                </div>
+              </button>
+            )}
+
+            <FloatingBadge icon={CheckCircle2} color="mint" size="compact" float={false}>
+              Analyzed {repository.analyzedAt}
+            </FloatingBadge>
+          </div>
         </div>
 
         <div className="flex flex-col gap-3">

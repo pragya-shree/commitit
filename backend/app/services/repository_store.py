@@ -1,16 +1,16 @@
 """
-In-memory repository registry.
-
-Maps a public repository_id to its local clone path on disk (and,
-optionally, the repository metadata collected at clone time). This keeps
-filesystem paths out of API responses while letting later requests (e.g.
-scanning, or building the Knowledge Model) look a repository back up by
-ID without recomputing metadata. No database is used — this is a simple
-process-lifetime dict, intentionally minimal for now.
+Database-driven repository registry.
+Resolves repository metadata and disk locations dynamically from SQLite configurations.
 """
 
 import uuid
+import shutil
 from pathlib import Path
+from sqlalchemy.orm import Session
+
+from app.core.config import settings
+from app.db.database import SessionLocal
+from app.models.auth import UserRepository, User
 
 
 class UnknownRepositoryIDError(Exception):
@@ -21,45 +21,128 @@ class RepositoryPathMissingError(Exception):
     """Raised when a registered repository's local path no longer exists on disk."""
 
 
-_REGISTRY: dict[str, dict] = {}
-
-
 def register(local_path: Path, metadata: dict | None = None) -> str:
     """
     Register a local clone path and return its new repository_id.
-
-    metadata (owner/name/branch/files/directories/size, as collected by
-    git_service) is stored alongside the path so later steps don't need
-    to recompute it. It's optional since not every caller has it on hand.
+    Ensures a default test user exists and copies the folder contents to configuration-derived directory.
     """
-    repository_id = f"cmt_{uuid.uuid4().hex[:8]}"
-    _REGISTRY[repository_id] = {"local_path": str(local_path), "metadata": metadata}
-    return repository_id
+    db = SessionLocal()
+    try:
+        user = db.query(User).first()
+        if not user:
+            user = User(id="test_user_id", username="testuser", password_hash="dummy")
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
+        repository_id = f"cmt_{uuid.uuid4().hex[:8]}"
+
+        owner = "unknown"
+        name = local_path.name
+        branch = "main"
+        if metadata:
+            owner = metadata.get("owner") or "unknown"
+            name = metadata.get("name") or local_path.name
+            branch = metadata.get("branch") or "main"
+
+        # Copy dummy directory to configured storage path
+        target_path = Path(settings.REPO_STORAGE_DIR) / str(user.id) / str(repository_id)
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        if target_path.exists():
+            shutil.rmtree(target_path)
+        shutil.copytree(local_path, target_path)
+
+        db_repo = UserRepository(
+            id=repository_id,
+            user_id=user.id,
+            name=name,
+            github_owner=owner,
+            github_repo=name,
+            github_url=f"https://github.com/{owner}/{name}",
+            default_branch=branch,
+        )
+        db.add(db_repo)
+        db.commit()
+        db.refresh(db_repo)
+
+        return repository_id
+    finally:
+        db.close()
+
+
+def compute_folder_stats(path: Path) -> dict:
+    """Walk the directory to dynamically compute file, directory, and byte size counts."""
+    file_count = 0
+    dir_count = 0
+    total_bytes = 0
+
+    if not path.exists():
+        return {"files": 0, "directories": 0, "size": "0.0 KB"}
+
+    for p in path.rglob("*"):
+        if ".git" in p.parts:
+            continue
+        if p.is_file():
+            file_count += 1
+            total_bytes += p.stat().st_size
+        elif p.is_dir():
+            dir_count += 1
+
+    kb = total_bytes / 1024
+    if kb < 1024:
+        size_str = f"{kb:.1f} KB"
+    else:
+        size_str = f"{kb / 1024:.1f} MB"
+
+    return {
+        "files": file_count,
+        "directories": dir_count,
+        "size": size_str,
+    }
 
 
 def resolve(repository_id: str) -> Path:
     """
-    Look up the local path for a repository_id.
-
-    Raises UnknownRepositoryIDError if the ID was never registered, or
-    RepositoryPathMissingError if it was registered but no longer exists
-    on disk (e.g. removed externally).
+    Look up the local path for a repository_id from the database.
+    Derives path dynamically: settings.REPO_STORAGE_DIR / user_id / repository_id.
     """
-    entry = _REGISTRY.get(repository_id)
-    if entry is None:
-        raise UnknownRepositoryIDError(f"Unknown repository_id: {repository_id}")
+    db = SessionLocal()
+    try:
+        repo = db.query(UserRepository).filter(UserRepository.id == repository_id).first()
+        if not repo:
+            raise UnknownRepositoryIDError(f"Unknown repository_id: {repository_id}")
 
-    path = Path(entry["local_path"])
-    if not path.exists():
-        raise RepositoryPathMissingError(f"Repository no longer exists on disk: {repository_id}")
+        path = Path(settings.REPO_STORAGE_DIR) / str(repo.user_id) / str(repository_id)
+        if not path.exists():
+            raise RepositoryPathMissingError(f"Repository no longer exists on disk: {repository_id}")
 
-    return path
+        return path
+    finally:
+        db.close()
 
 
 def get_metadata(repository_id: str) -> dict | None:
     """
-    Return the repository metadata stored at registration time, or None
-    if none was provided. Validates the ID/path the same way resolve() does.
+    Return repository owner, name, and default branch metadata from the database,
+    calculating dynamic directory statistics on the fly.
     """
-    resolve(repository_id)
-    return _REGISTRY[repository_id]["metadata"]
+    db = SessionLocal()
+    try:
+        repo = db.query(UserRepository).filter(UserRepository.id == repository_id).first()
+        if not repo:
+            raise UnknownRepositoryIDError(f"Unknown repository_id: {repository_id}")
+
+        path = Path(settings.REPO_STORAGE_DIR) / str(repo.user_id) / str(repository_id)
+        if not path.exists():
+            raise RepositoryPathMissingError(f"Repository no longer exists on disk: {repository_id}")
+
+        stats = compute_folder_stats(path)
+        return {
+            "owner": repo.github_owner,
+            "name": repo.github_repo,
+            "branch": repo.default_branch,
+            **stats
+        }
+    finally:
+        db.close()
+

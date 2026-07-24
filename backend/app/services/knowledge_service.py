@@ -18,10 +18,13 @@ from pathlib import Path
 
 from app.core.logging import get_logger
 from app.models.knowledge import KnowledgeModel
+from app.services.discovery_service import generate_discoveries
 from app.services.graph_service import build_dependency_graph_from_parsed
+from app.services.health_service import compute_repository_health
 from app.services.parser_service import parse_repository
 from app.services.repository_store import get_metadata
 from app.services.scanner_service import scan_repository
+from app.services.technology_service import detect_technologies
 
 logger = get_logger(__name__)
 
@@ -71,6 +74,14 @@ def build(repository_id: str, local_path: Path) -> KnowledgeModel:
 
     repository_metadata = get_metadata(repository_id) or _fallback_metadata(local_path)
 
+    health_indicators = compute_repository_health(
+        local_path, scan_result, parse_result, graph_result
+    )
+
+    technologies = detect_technologies(local_path, scan_result)
+
+    recent_discoveries = generate_discoveries(local_path, technologies, health_indicators)
+
     model = KnowledgeModel(
         repository_id=repository_id,
         created_at=datetime.now(timezone.utc),
@@ -95,6 +106,9 @@ def build(repository_id: str, local_path: Path) -> KnowledgeModel:
         },
         nodes=graph_result["nodes"],
         edges=graph_result["edges"],
+        health_indicators=health_indicators,
+        technologies=technologies,
+        recent_discoveries=recent_discoveries,
     )
 
     with _LOCK:

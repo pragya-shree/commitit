@@ -16,3 +16,4 @@ export * from "./ConnectionLayer";
 export * from "./NodeLabel";
 export * from "./types";
 export * from "./mockUniverseData";
+export * from "./ReadmeShowcase";

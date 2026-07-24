@@ -153,10 +153,13 @@ def test_dependencies_endpoint_unknown_repository_id():
 
 
 def test_dependencies_endpoint_path_missing(tmp_path):
+    import shutil
+    from app.services.repository_store import resolve
     repo_path = tmp_path / "gone"
     repo_path.mkdir()
     repository_id = register(repo_path)
-    repo_path.rmdir()
+    resolved_path = resolve(repository_id)
+    shutil.rmtree(resolved_path, ignore_errors=True)
 
     response = client.get(f"/api/v1/repository/{repository_id}/dependencies")
     assert response.status_code == 410

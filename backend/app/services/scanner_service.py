@@ -124,7 +124,7 @@ def scan_repository(local_path: Path) -> dict:
 
             largest_files.append(
                 {
-                    "path": str(file_path.relative_to(local_path)),
+                    "path": file_path.relative_to(local_path).as_posix(),
                     "extension": file_path.suffix or "",
                     "size": size,
                 }

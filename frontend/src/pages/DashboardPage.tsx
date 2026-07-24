@@ -1,8 +1,6 @@
-import { ArrowLeft } from "lucide-react";
 import { RepositoryDashboard, mockDashboardData } from "@/components/dashboard";
 import { mapKnowledgeToDashboardData } from "@/components/dashboard/mapKnowledgeToDashboardData";
-import { GradientButton, LoadingState, ErrorState } from "@/components/ui";
-import { PageContainer } from "@/layouts";
+import { LoadingState, ErrorState } from "@/components/ui";
 import { useApiRequest } from "@/hooks/useApiRequest";
 import { getKnowledge } from "@/services/api";
 
@@ -20,30 +18,20 @@ import { getKnowledge } from "@/services/api";
 
 interface DashboardPageProps {
   repositoryId: string;
-  onBack?: () => void;
+  onViewUniverse?: () => void;
 }
 
-export function DashboardPage({ repositoryId, onBack }: DashboardPageProps) {
+export function DashboardPage({ repositoryId, onViewUniverse }: DashboardPageProps) {
   const knowledgeRequest = useApiRequest((signal) => getKnowledge(repositoryId, signal), [repositoryId]);
 
   const dashboardData = knowledgeRequest.data
     ? mapKnowledgeToDashboardData(knowledgeRequest.data.knowledge, {
-        technologies: mockDashboardData.technologies,
         keyInsights: mockDashboardData.keyInsights,
-        recentDiscoveries: mockDashboardData.recentDiscoveries,
-        healthIndicators: mockDashboardData.healthIndicators,
       })
     : null;
 
   return (
-    <div className="min-h-screen pb-16">
-      {onBack && (
-        <PageContainer size="wide" className="pt-8">
-          <GradientButton variant="ghost" size="sm" leftIcon={ArrowLeft} onClick={onBack}>
-            Back to Universe
-          </GradientButton>
-        </PageContainer>
-      )}
+    <div className="min-h-[calc(100vh-5rem)] pb-12 pt-4">
 
       {knowledgeRequest.loading && <LoadingState message="Loading repository metrics…" />}
 
@@ -51,7 +39,7 @@ export function DashboardPage({ repositoryId, onBack }: DashboardPageProps) {
         <ErrorState message={knowledgeRequest.error} onRetry={knowledgeRequest.retry} />
       )}
 
-      {dashboardData && <RepositoryDashboard data={dashboardData} />}
+      {dashboardData && <RepositoryDashboard data={dashboardData} onViewUniverse={onViewUniverse} />}
     </div>
   );
 }

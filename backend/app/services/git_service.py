@@ -16,7 +16,6 @@ from git import Repo
 from git.exc import GitCommandError
 
 from app.core.logging import get_logger
-from app.services.repository_store import register
 
 logger = get_logger(__name__)
 
@@ -91,28 +90,39 @@ def _format_size(total_bytes: int) -> str:
     return f"{kb / 1024:.1f} MB"
 
 
-def clone_repository(github_url: str) -> dict:
+import uuid
+from sqlalchemy.orm import Session
+from app.core.config import settings
+from app.models.auth import UserRepository
+
+
+def clone_repository(github_url: str, user_id: str, db: Session) -> dict:
     """
     Validate, clone, and inspect a public GitHub repository.
 
-    Returns {"repository_id": str, "metadata": dict} on success. Raises
-    InvalidRepositoryURLError, RepositoryNotFoundError, or CloneFailedError
-    on failure. The temporary clone directory is removed automatically
-    whenever cloning fails.
+    Clones into the config-derived path `settings.REPO_STORAGE_DIR/user_id/repository_id`.
+    Saves repository registration inside user_repositories DB table.
     """
     owner, name = parse_github_url(github_url)
 
-    workspace = Path(tempfile.mkdtemp(prefix="commitit_"))
-    clone_path = workspace / name
+    # 1. Generate repository_id
+    repository_id = f"cmt_{uuid.uuid4().hex[:8]}"
+
+    # 2. Derive storage path
+    user_dir = Path(settings.REPO_STORAGE_DIR) / user_id
+    clone_path = user_dir / repository_id
 
     logger.info("Clone started: %s/%s -> %s", owner, name, clone_path)
+
+    # Ensure parent directories exist
+    user_dir.mkdir(parents=True, exist_ok=True)
 
     try:
         repo = Repo.clone_from(github_url, clone_path, depth=1)
     except GitCommandError as exc:
-        shutil.rmtree(workspace, ignore_errors=True)
+        if clone_path.exists():
+            shutil.rmtree(clone_path, ignore_errors=True)
         logger.warning("Clone failed for %s/%s: %s", owner, name, exc)
-        logger.info("Cleanup performed for %s", workspace)
 
         error_text = str(exc).lower()
         if "not found" in error_text or "repository not found" in error_text:
@@ -123,12 +133,28 @@ def clone_repository(github_url: str) -> dict:
             ) from exc
         raise CloneFailedError(f"Failed to clone repository: {github_url}") from exc
     except OSError as exc:
-        shutil.rmtree(workspace, ignore_errors=True)
+        if clone_path.exists():
+            shutil.rmtree(clone_path, ignore_errors=True)
         logger.warning("Filesystem error while cloning %s/%s: %s", owner, name, exc)
-        logger.info("Cleanup performed for %s", workspace)
         raise CloneFailedError(f"Filesystem error while cloning: {exc}") from exc
 
     logger.info("Clone completed: %s/%s", owner, name)
     metadata = _collect_metadata(clone_path, owner, name, repo)
-    repository_id = register(clone_path, metadata)
+    default_branch = metadata.get("branch") or "main"
+
+    # Register repository in database
+    db_repo = UserRepository(
+        id=repository_id,
+        user_id=user_id,
+        name=name,
+        github_owner=owner,
+        github_repo=name,
+        github_url=github_url,
+        default_branch=default_branch,
+    )
+    db.add(db_repo)
+    db.commit()
+    db.refresh(db_repo)
+
     return {"repository_id": repository_id, "metadata": metadata}
+

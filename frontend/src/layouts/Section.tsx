@@ -21,9 +21,10 @@ import { PageContainer, type ContainerSize } from "./PageContainer";
  * the actual landmark/semantic node.
  */
 
-type SectionSpacing = "sm" | "md" | "lg" | "xl";
+type SectionSpacing = "none" | "sm" | "md" | "lg" | "xl";
 
 const spacingClasses: Record<SectionSpacing, string> = {
+  none: "py-0",
   sm: "py-12 sm:py-16",
   md: "py-16 sm:py-24",
   lg: "py-24 sm:py-32",

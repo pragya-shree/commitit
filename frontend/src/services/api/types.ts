@@ -93,6 +93,28 @@ export interface DependencyGraphResponse {
 
 // --- Knowledge Model (the unified analysis) ---
 
+export interface HealthIndicator {
+  id: string;
+  label: string;
+  score: number;
+  status: "excellent" | "good" | "fair" | "needs-attention";
+  description: string;
+}
+
+export interface TechnologyEntry {
+  name: string;
+  category: "language" | "framework" | "tooling" | "infrastructure";
+}
+
+export interface DiscoveryEntry {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  color: string;
+  timestamp: string;
+}
+
 export interface KnowledgeModel {
   repository_id: string;
   version: string;
@@ -106,6 +128,9 @@ export interface KnowledgeModel {
   graph_summary: DependencyGraphSummary;
   nodes: GraphNode[];
   edges: GraphEdge[];
+  health_indicators: HealthIndicator[];
+  technologies: TechnologyEntry[];
+  recent_discoveries: DiscoveryEntry[];
 }
 
 export interface KnowledgeResponse {

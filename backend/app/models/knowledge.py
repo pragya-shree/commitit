@@ -11,9 +11,12 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from app.models.discovery import DiscoveryEntry
 from app.models.graph import DependencyGraphSummary, GraphEdge, GraphNode
+from app.models.health import HealthIndicator
 from app.models.parser import ParsedModule, ParseSummary
 from app.models.repository import LargestFile, RepositoryMetadata, ScanSummary, TreeNode
+from app.models.technology import TechnologyEntry
 
 
 class KnowledgeModel(BaseModel):
@@ -40,6 +43,15 @@ class KnowledgeModel(BaseModel):
     graph_summary: DependencyGraphSummary
     nodes: list[GraphNode]
     edges: list[GraphEdge]
+
+    # Health analysis results.
+    health_indicators: list[HealthIndicator] = []
+
+    # Technology stack results.
+    technologies: list[TechnologyEntry] = []
+
+    # Recent discoveries.
+    recent_discoveries: list[DiscoveryEntry] = []
 
 
 class KnowledgeResponse(BaseModel):

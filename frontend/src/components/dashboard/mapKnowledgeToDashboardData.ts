@@ -1,7 +1,33 @@
-import { Code2, Files, Folder, FolderTree, GitCompare, LayoutGrid, Network, Share2 } from "lucide-react";
+import {
+  Code2,
+  Files,
+  Folder,
+  FolderTree,
+  GitCompare,
+  LayoutGrid,
+  Network,
+  Share2,
+  Activity,
+  Lightbulb,
+  Shapes,
+  BookOpen,
+  AlertCircle,
+  Globe,
+} from "lucide-react";
 import { brand } from "@/theme";
 import type { KnowledgeModel, TreeNode } from "@/services/api";
 import type { InsightEntry, RepositoryDashboardData } from "./types";
+
+const ICON_MAP: Record<string, any> = {
+  Code2,
+  Activity,
+  Lightbulb,
+  Shapes,
+  BookOpen,
+  AlertCircle,
+  Globe,
+  Share2,
+};
 
 /**
  * Derives the real parts of RepositoryDashboardData from a backend
@@ -130,7 +156,7 @@ function deriveKeyInsights(knowledge: KnowledgeModel): InsightEntry[] {
 
 export function mapKnowledgeToDashboardData(
   knowledge: KnowledgeModel,
-  mockExtras: Pick<RepositoryDashboardData, "technologies" | "keyInsights" | "recentDiscoveries" | "healthIndicators">,
+  mockExtras: Pick<RepositoryDashboardData, "keyInsights">,
 ): RepositoryDashboardData {
   const totalLanguageFiles = Object.values(knowledge.languages).reduce((total, count) => total + count, 0);
   const languageEntries = Object.entries(knowledge.languages).sort(([, a], [, b]) => b - a);
@@ -186,5 +212,15 @@ export function mapKnowledgeToDashboardData(
     languageBreakdown,
     ...mockExtras,
     keyInsights: deriveKeyInsights(knowledge),
+    healthIndicators: knowledge.health_indicators ?? [],
+    technologies: knowledge.technologies ?? [],
+    recentDiscoveries: (knowledge.recent_discoveries ?? []).map((discovery) => ({
+      id: discovery.id,
+      title: discovery.title,
+      description: discovery.description,
+      icon: ICON_MAP[discovery.icon] || Lightbulb,
+      color: brand[discovery.color as keyof typeof brand] || brand.violet,
+      timestamp: discovery.timestamp,
+    })),
   };
 }

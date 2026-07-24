@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/animations";
 import { transition as motionTransition, brand } from "@/theme";
@@ -11,49 +11,18 @@ import { TypingIndicator } from "./TypingIndicator";
 import { EmptyExplanationState } from "./EmptyExplanationState";
 import type { NodeExplanation } from "./types";
 
-/**
- * AIExplanationPanel — a glass drawer sliding in from the right,
- * showing structured knowledge about whatever node is currently
- * selected in RepositoryUniverse. Deliberately not a chat interface:
- * there's no message history, no input box, just the current node's
- * explanation appearing as if it surfaced directly from the graph.
- *
- * `title` is decoupled from `explanation` on purpose: the node's label
- * is already known the instant it's clicked (no backend round trip
- * needed for that), so the header appears immediately while the actual
- * explanation loads — `loading` shows TypingIndicator in the body below
- * a header that's already correct, rather than the whole panel waiting
- * on the network before showing anything.
- *
- * Backend integration: `explanation`/`loading`/`error`/`onRetry` are
- * driven by whatever composes this panel (UniversePage, via
- * useApiRequest calling POST /repository/{id}/explanation and
- * mapExplanationToNodeExplanation). This component has no fetching
- * logic of its own — it only renders whatever state it's handed.
- *
- * Uses the `glass-panel` utility class directly rather than the
- * GlassPanel component — GlassPanel applies one uniform border-radius to
- * every corner, which is wrong for an edge-anchored drawer (the two
- * corners flush against the viewport edge shouldn't round). Reusing the
- * same underlying CSS utility keeps the surface visually consistent with
- * every other glass component without forcing GlassPanel's API to do
- * something it isn't shaped for.
- */
-
 interface AIExplanationPanelProps {
   open: boolean;
-  /** The selected node's label — known immediately on click, independent of whether `explanation` has loaded yet. */
   title: string | null;
   explanation: NodeExplanation | null;
   loading?: boolean;
   error?: string | null;
-  /** Accent color for the header dot/glow — typically the selected node's brand color. */
   accentColor?: string;
   onClose: () => void;
   onRetry?: () => void;
 }
 
-export function AIExplanationPanel({
+export const AIExplanationPanel = React.memo(function AIExplanationPanel({
   open,
   title,
   explanation,
@@ -70,9 +39,6 @@ export function AIExplanationPanel({
     if (open) closeButtonRef.current?.focus();
   }, [open]);
 
-  // Escape-to-close — a lightweight nod to dialog semantics without
-  // implementing full focus-trapping, which felt disproportionate for a
-  // frontend-only mock experience.
   useEffect(() => {
     if (!open) return;
     function handleKeyDown(event: KeyboardEvent) {
@@ -87,7 +53,7 @@ export function AIExplanationPanel({
       {open && (
         <>
           <motion.div
-            className="fixed inset-0 z-40 bg-void-950/20"
+            className="fixed inset-0 z-40 bg-void-950/20 sm:hidden"
             onClick={onClose}
             initial={{ opacity: reduceMotion ? 1 : 0 }}
             animate={{ opacity: 1 }}
@@ -98,10 +64,11 @@ export function AIExplanationPanel({
             role="dialog"
             aria-modal="true"
             aria-label="Repository node explanation"
-            className="glass-panel fixed inset-y-0 right-0 z-50 flex w-full flex-col rounded-l-2xl sm:w-[420px]"
-            initial={{ x: reduceMotion ? 0 : "100%" }}
+            style={{ willChange: "transform, opacity" }}
+            className="glass-panel fixed top-20 bottom-4 right-4 z-50 flex w-[calc(100vw-2rem)] flex-col rounded-2xl sm:w-[420px]"
+            initial={{ x: reduceMotion ? 0 : "110%" }}
             animate={{ x: 0 }}
-            exit={{ x: reduceMotion ? 0 : "100%" }}
+            exit={{ x: reduceMotion ? 0 : "110%" }}
             transition={motionTransition.springSoft}
           >
             <div className="flex flex-1 flex-col overflow-hidden p-6">
@@ -207,4 +174,4 @@ export function AIExplanationPanel({
       )}
     </AnimatePresence>
   );
-}
+});

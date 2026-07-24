@@ -1,3 +1,4 @@
+import React from "react";
 import { motion } from "framer-motion";
 import { FolderGit2 } from "lucide-react";
 import { cn } from "@/utils/cn";
@@ -7,27 +8,25 @@ import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { NodeLabel } from "./NodeLabel";
 import type { NodeVisualState } from "./types";
 
-/**
- * RepositoryNode — the central node representing the repository itself:
- * bigger than any OrbitingNode, warm-gradient filled, with a continuous
- * breathing glow (via `pulseGlow`) instead of a static border. It
- * participates in the same hover system as every OrbitingNode — hovering
- * or focusing it sets it as the "hovered" node like any other, which
- * (since it connects to every orbiting node) highlights the whole graph.
- */
-
 interface RepositoryNodeProps {
   label: string;
   meta?: string;
   state: NodeVisualState;
-  /** Whether this node is the currently (persistently) selected one — distinct from `state`, which also reflects transient hover. */
   selected?: boolean;
   onHoverStart: () => void;
   onHoverEnd: () => void;
   onSelect?: () => void;
 }
 
-export function RepositoryNode({ label, meta, state, selected = false, onHoverStart, onHoverEnd, onSelect }: RepositoryNodeProps) {
+export const RepositoryNode = React.memo(function RepositoryNode({
+  label,
+  meta,
+  state,
+  selected = false,
+  onHoverStart,
+  onHoverEnd,
+  onSelect,
+}: RepositoryNodeProps) {
   const reduceMotion = usePrefersReducedMotion();
 
   return (
@@ -46,7 +45,7 @@ export function RepositoryNode({ label, meta, state, selected = false, onHoverSt
         aria-pressed={selected}
         className={cn(
           "relative flex h-24 w-24 items-center justify-center rounded-full transition-opacity duration-300",
-          state === "dimmed" ? "opacity-40" : "opacity-100",
+          state === "dimmed" ? "opacity-40" : "opacity-100"
         )}
       >
         <motion.span
@@ -60,4 +59,4 @@ export function RepositoryNode({ label, meta, state, selected = false, onHoverSt
       <NodeLabel label={label} meta={meta} state={state} />
     </div>
   );
-}
+});

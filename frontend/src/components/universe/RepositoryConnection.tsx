@@ -1,16 +1,7 @@
+import React from "react";
 import { motion } from "framer-motion";
 import { easing } from "@/theme";
 import type { ConnectionVisualState } from "./types";
-
-/**
- * RepositoryConnection — a single line between two node positions, plus
- * a small glowing dot that continuously travels along it (the "soft
- * pulse" requirement). The line itself is a static `<line>` (cheap,
- * CSS-transitioned opacity/width only on state change); the traveling
- * dot is the only continuously-animated part, and is skipped entirely
- * under reduced motion rather than just slowed down — a moving dot is
- * literally motion, so it's removed, not softened.
- */
 
 interface RepositoryConnectionProps {
   x1: number;
@@ -24,7 +15,17 @@ interface RepositoryConnectionProps {
   reduceMotion: boolean;
 }
 
-export function RepositoryConnection({ x1, y1, x2, y2, color, state, pulseDuration, pulseDelay, reduceMotion }: RepositoryConnectionProps) {
+export const RepositoryConnection = React.memo(function RepositoryConnection({
+  x1,
+  y1,
+  x2,
+  y2,
+  color,
+  state,
+  pulseDuration,
+  pulseDelay,
+  reduceMotion,
+}: RepositoryConnectionProps) {
   return (
     <g>
       <line
@@ -54,4 +55,4 @@ export function RepositoryConnection({ x1, y1, x2, y2, color, state, pulseDurati
       )}
     </g>
   );
-}
+});

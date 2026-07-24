@@ -9,4 +9,5 @@
 
 export * from "./apiClient";
 export * from "./repositoryApi";
+export * from "./authApi";
 export * from "./types";

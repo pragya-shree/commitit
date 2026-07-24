@@ -96,6 +96,7 @@ import { FloatingBadge, SectionHeading } from "@/components/ui";
 import { AnalysisOverlay } from "@/components/analysis";
 import { useApiRequest } from "@/hooks/useApiRequest";
 import { ApiError, cloneRepository } from "@/services/api";
+import { useAuth } from "@/context/AuthContext";
 import { RepositoryUrlForm } from "./RepositoryUrlForm";
 import { HeroVisual } from "./HeroVisual";
 
@@ -137,9 +138,11 @@ const trustBadges = [
 
 interface HeroProps {
   onAnalysisComplete?: (repositoryId: string) => void;
+  onLoginRedirect?: () => void;
 }
 
-export function Hero({ onAnalysisComplete }: HeroProps) {
+export function Hero({ onAnalysisComplete, onLoginRedirect }: HeroProps) {
+  const { user } = useAuth();
   const [pendingClone, setPendingClone] = useState<{ url: string; token: number } | null>(null);
   const [repositoryId, setRepositoryId] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -162,6 +165,10 @@ export function Hero({ onAnalysisComplete }: HeroProps) {
   }, [cloneRequest.data]);
 
   function handleAnalyzeRequest(url: string) {
+    if (!user) {
+      onLoginRedirect?.();
+      return;
+    }
     submitTokenRef.current += 1;
     setPendingClone({ url, token: submitTokenRef.current });
   }
@@ -172,9 +179,9 @@ export function Hero({ onAnalysisComplete }: HeroProps) {
 
   return (
     <>
-      <Section spacing="lg" containerSize="wide" className="relative z-10 flex min-h-screen items-center">
-        <div className="grid w-full items-center gap-12 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="flex flex-col items-center gap-8 text-center lg:items-start lg:text-left">
+      <Section container={false} spacing="none" className="relative z-10 flex min-h-[calc(100vh-5rem)] items-center px-6 sm:px-12 lg:px-16 xl:px-20 2xl:px-24 py-4 lg:py-6 w-full">
+        <div className="grid w-full items-center gap-12 lg:gap-16 xl:gap-24 grid-cols-1 lg:grid-cols-2">
+          <div className="flex flex-col items-center gap-8 text-center lg:items-start lg:text-left w-full">
             <FloatingBadge icon={Sparkles} color="coral" size="large">
               AI-Powered Code Intelligence
             </FloatingBadge>
@@ -182,7 +189,7 @@ export function Hero({ onAnalysisComplete }: HeroProps) {
             <SectionHeading
               titleAs="h1"
               align="center"
-              className="lg:items-start lg:text-left"
+              className="lg:items-start lg:text-left [&>p]:max-w-3xl"
               title={
                 <>
                   Understand Any <span className="text-gradient-warm">Codebase</span>
@@ -191,7 +198,7 @@ export function Hero({ onAnalysisComplete }: HeroProps) {
               subtitle="Paste a GitHub repository and watch CommitIt build a living map of every file, function, and connection inside it — then ask it anything."
             />
 
-            <div className="w-full max-w-2xl">
+            <div className="w-full max-w-2xl lg:max-w-3xl">
               <RepositoryUrlForm
                 onAnalyze={handleAnalyzeRequest}
                 cloneLoading={cloneRequest.loading}
@@ -208,7 +215,7 @@ export function Hero({ onAnalysisComplete }: HeroProps) {
             </div>
           </div>
 
-          <div className="hidden justify-center lg:flex">
+          <div className="hidden justify-center lg:flex lg:justify-end w-full pr-4 sm:pr-8 xl:pr-12">
             <HeroVisual />
           </div>
         </div>

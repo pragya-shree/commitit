@@ -22,7 +22,7 @@ import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 
 const NODE_COLORS = [brand.coral, brand.mint, brand.amber, brand.magenta, brand.cyan, brand.violet];
 const NODE_COUNT = 6;
-const RADIUS = 120;
+const RADIUS = 150;
 
 const nodes = Array.from({ length: NODE_COUNT }, (_, index) => {
   const angle = (index / NODE_COUNT) * Math.PI * 2;
@@ -41,15 +41,15 @@ export function HeroVisual({ className }: HeroVisualProps) {
   const reduceMotion = usePrefersReducedMotion();
 
   return (
-    <div aria-hidden="true" className={cn("relative h-[280px] w-[280px] sm:h-[320px] sm:w-[320px]", className)}>
+    <div aria-hidden="true" className={cn("relative h-[320px] w-[320px] sm:h-[380px] sm:w-[380px] lg:h-[440px] lg:w-[440px] xl:h-[480px] xl:w-[480px]", className)}>
       <motion.div
-        className="absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full"
+        className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full shadow-[0_0_40px_rgba(255,107,82,0.4)]"
         style={{ backgroundImage: gradients.warm }}
         {...pulseGlow({ minOpacity: 0.75, maxOpacity: 1, scaleRange: [0.94, 1.06], duration: 4, reduceMotion })}
       />
 
       <div className="animate-spin-slower absolute inset-0">
-        <svg className="absolute inset-0 h-full w-full overflow-visible" viewBox="-160 -160 320 320" aria-hidden="true">
+        <svg className="absolute inset-0 h-full w-full overflow-visible" viewBox="-190 -190 380 380" aria-hidden="true">
           {nodes.map((node, index) => (
             <line key={index} x1={0} y1={0} x2={node.x} y2={node.y} stroke={node.color} strokeOpacity={0.25} strokeWidth={1} />
           ))}
