@@ -27,6 +27,13 @@ jobs:
           pip install -r backend/requirements.txt
           pip install pytest pyyaml
 
+      - name: Debug Gemini Provider
+        run: |
+          echo "Current commit:"
+          git rev-parse HEAD
+          echo "==== gemini_provider.py ===="
+          sed -n '1,90p' backend/app/services/llm/gemini_provider.py
+
       - name: Run Benchmark Test Suite
         run: |
           pytest backend/tests/test_benchmark_runner.py backend/tests/test_benchmark_judge.py backend/tests/test_benchmark_regression.py backend/tests/test_benchmark_reporting.py
