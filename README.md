@@ -30,21 +30,43 @@
 
 ---
 
-## 📸 Interface Previews
+## 📸 Screenshots
 
-<div align="center">
-  <h3>Interactive 3D Repository Universe</h3>
-  <img src="screenshots/universe.svg" alt="CommitIt 3D Repository Universe" width="850">
-</div>
+### Hero Landing Page
+Analyze any public GitHub repository with a single click.
 
-<br/>
-
-<div align="center">
-  <h3>Multi-Turn AI Assistant & Tool Execution</h3>
-  <img src="screenshots/assistant.svg" alt="CommitIt AI Assistant" width="850">
-</div>
+![Hero Landing Page](screenshots/hero.png)
 
 ---
+
+### Repository Universe
+Explore your repository as an interactive knowledge graph.
+
+![Repository Universe](screenshots/universe.png)
+
+---
+
+### AI Assistant
+Ask natural language questions about your codebase.
+
+![AI Assistant](screenshots/ai-assistant.png)
+
+---
+
+### Dashboard
+View repository insights, recent activity, and project metrics.
+
+![Dashboard](screenshots/dashboard.png)
+
+---
+
+### Account Center
+Manage your profile, avatar, preferences, and security settings.
+
+![Account Center](screenshots/account-center.png)
+
+---
+
 
 ## 📜 Table of Contents
 
