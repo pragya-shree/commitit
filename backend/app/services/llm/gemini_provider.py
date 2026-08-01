@@ -69,6 +69,42 @@ class GeminiProvider(LLMProvider):
         except Exception:
             return False
 
+    def generate_chat_response(
+        self,
+        messages: list[dict],
+        tools: list | None = None,
+        system_instruction: str | None = None,
+        intent_result: Any | None = None,
+    ) -> dict:
+        """Synchronous chat response via Gemini REST API."""
+        prompt = messages[-1]["content"] if messages else ""
+        if system_instruction:
+            prompt = f"{system_instruction}\n\n{prompt}"
+        url = f"{GEMINI_API_BASE}/models/{self.model}:generateContent?key={self.api_key}"
+        payload = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode("utf-8")
+        request = urllib.request.Request(
+            url, data=payload, headers={"Content-Type": "application/json"}, method="POST"
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                body = json.loads(response.read().decode("utf-8"))
+            text = body["candidates"][0]["content"]["parts"][0]["text"]
+            return {"content": text, "tool_calls": [], "metadata": {"provider": self.name, "model": self.model}}
+        except (urllib.error.URLError, TimeoutError, KeyError, IndexError, TypeError) as exc:
+            raise ProviderRequestError(f"Gemini chat request failed: {exc}") from exc
+
+    def stream_chat(
+        self,
+        messages: list[dict],
+        tools: list | None = None,
+        system_instruction: str | None = None,
+        intent_result: Any | None = None,
+    ):
+        """Streaming chat response emitting StreamEvents."""
+        from app.models.ai import StreamEvent, StreamEventType
+        res = self.generate_chat_response(messages, tools, system_instruction)
+        yield StreamEvent(event_type=StreamEventType.TOKEN, data={"token": res["content"]})
+
     @staticmethod
     def _build_prompt(question: str, context: dict) -> str:
         grounding = explanation_service.explain_as_text(context)

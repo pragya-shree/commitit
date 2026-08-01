@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 380" width="700" height="380" style="background-color: #0f172a; font-family: system-ui, -apple-system, sans-serif;">
+  <text x="350" y="35" text-anchor="middle" fill="#f8fafc" font-size="18" font-weight="700">Hallucination Rate Trend</text>
+  <path d="M 60.0,203.0 L 210.0,221.2 L 360.0,244.6 L 510.0,265.4 L 660.0,273.2" fill="none" stroke="#ef4444" stroke-width="3"/>
+  <circle cx="60.0" cy="203.0" r="5" fill="#38bdf8"/>
+  <text x="60.0" y="191.0" text-anchor="middle" fill="#f8fafc" font-size="12" font-weight="600">4.5%</text>
+  <text x="60.0" y="360" text-anchor="middle" fill="#94a3b8" font-size="12">Run 1</text>
+  <circle cx="210.0" cy="221.2" r="5" fill="#38bdf8"/>
+  <text x="210.0" y="209.2" text-anchor="middle" fill="#f8fafc" font-size="12" font-weight="600">3.8%</text>
+  <text x="210.0" y="360" text-anchor="middle" fill="#94a3b8" font-size="12">Run 2</text>
+  <circle cx="360.0" cy="244.6" r="5" fill="#38bdf8"/>
+  <text x="360.0" y="232.6" text-anchor="middle" fill="#f8fafc" font-size="12" font-weight="600">2.9%</text>
+  <text x="360.0" y="360" text-anchor="middle" fill="#94a3b8" font-size="12">Run 3</text>
+  <circle cx="510.0" cy="265.4" r="5" fill="#38bdf8"/>
+  <text x="510.0" y="253.4" text-anchor="middle" fill="#f8fafc" font-size="12" font-weight="600">2.1%</text>
+  <text x="510.0" y="360" text-anchor="middle" fill="#94a3b8" font-size="12">Run 4</text>
+  <circle cx="660.0" cy="273.2" r="5" fill="#38bdf8"/>
+  <text x="660.0" y="261.2" text-anchor="middle" fill="#f8fafc" font-size="12" font-weight="600">1.8%</text>
+  <text x="660.0" y="360" text-anchor="middle" fill="#94a3b8" font-size="12">Run 5</text>
+</svg>

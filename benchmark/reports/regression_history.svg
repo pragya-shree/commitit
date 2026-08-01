@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 380" width="700" height="380" style="background-color: #0f172a; font-family: system-ui, -apple-system, sans-serif;">
+  <defs>
+    <linearGradient id="barGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ec4899" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#ec4899"/>
+    </linearGradient>
+  </defs>
+  <text x="350" y="35" text-anchor="middle" fill="#f8fafc" font-size="18" font-weight="700">Regression History (Count of Regressions)</text>
+  <text x="150" y="99.66666666666667" text-anchor="end" fill="#94a3b8" font-size="13">v1.1</text>
+  <rect x="160" y="81.66666666666667" width="500" height="26" rx="4" fill="#1e293b"/>
+  <rect x="160" y="81.66666666666667" width="300.0" height="26" rx="4" fill="url(#barGrad)"/>
+  <text x="470.0" y="99.66666666666667" fill="#38bdf8" font-size="13" font-weight="600">3.0 regressions</text>
+  <text x="150" y="147.33333333333334" text-anchor="end" fill="#94a3b8" font-size="13">v1.2</text>
+  <rect x="160" y="129.33333333333334" width="500" height="26" rx="4" fill="#1e293b"/>
+  <rect x="160" y="129.33333333333334" width="100.0" height="26" rx="4" fill="url(#barGrad)"/>
+  <text x="270.0" y="147.33333333333334" fill="#38bdf8" font-size="13" font-weight="600">1.0 regressions</text>
+  <text x="150" y="195.0" text-anchor="end" fill="#94a3b8" font-size="13">v1.3</text>
+  <rect x="160" y="177.0" width="500" height="26" rx="4" fill="#1e293b"/>
+  <rect x="160" y="177.0" width="200.0" height="26" rx="4" fill="url(#barGrad)"/>
+  <text x="370.0" y="195.0" fill="#38bdf8" font-size="13" font-weight="600">2.0 regressions</text>
+  <text x="150" y="242.66666666666669" text-anchor="end" fill="#94a3b8" font-size="13">v1.4</text>
+  <rect x="160" y="224.66666666666669" width="500" height="26" rx="4" fill="#1e293b"/>
+  <rect x="160" y="224.66666666666669" width="0.0" height="26" rx="4" fill="url(#barGrad)"/>
+  <text x="170.0" y="242.66666666666669" fill="#38bdf8" font-size="13" font-weight="600">0.0 regressions</text>
+  <text x="150" y="290.33333333333337" text-anchor="end" fill="#94a3b8" font-size="13">v1.5</text>
+  <rect x="160" y="272.33333333333337" width="500" height="26" rx="4" fill="#1e293b"/>
+  <rect x="160" y="272.33333333333337" width="0.0" height="26" rx="4" fill="url(#barGrad)"/>
+  <text x="170.0" y="290.33333333333337" fill="#38bdf8" font-size="13" font-weight="600">0.0 regressions</text>
+</svg>

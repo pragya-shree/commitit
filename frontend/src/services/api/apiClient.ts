@@ -1,29 +1,9 @@
 import type { ApiErrorBody } from "./types";
 
-/**
- * Low-level HTTP client for the CommitIt backend. Every typed function in
- * repositoryApi.ts goes through `request()` here — it's the only place
- * that knows about the base URL, JSON parsing, and how the backend
- * shapes its errors.
- *
- * Base URL comes from `VITE_API_URL` (see `.env.example`), falling back
- * to `http://localhost:8000/api/v1` for local development against the
- * backend's default port. Vite only exposes env vars prefixed `VITE_` to
- * client code — see https://vite.dev/guide/env-and-mode.
- */
-
 const DEFAULT_BASE_URL = "http://localhost:8000/api/v1";
 
 export const API_BASE_URL: string = import.meta.env.VITE_API_URL ?? DEFAULT_BASE_URL;
 
-/**
- * Thrown for any non-2xx response or network failure. `status` is 0 for
- * network-level failures (backend unreachable, CORS, DNS, offline) where
- * there's no real HTTP status to report. `isAbort` distinguishes a
- * deliberate cancellation (component unmounted, request superseded) from
- * a genuine failure — callers should usually treat an aborted request as
- * "no-op", not an error to show the user.
- */
 export class ApiError extends Error {
   readonly status: number;
   readonly isAbort: boolean;
@@ -37,22 +17,18 @@ export class ApiError extends Error {
 }
 
 interface RequestOptions {
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
   signal?: AbortSignal;
 }
 
-/**
- * Extracts a human-readable message from the backend's `{"detail": "..."}`
- * error shape, falling back to a generic message per status code when the
- * body isn't JSON or doesn't have `detail` (e.g. a raw 502 from something
- * in front of the backend).
- */
 function messageForStatus(status: number, detail?: string): string {
   if (detail) return detail;
   switch (status) {
     case 400:
       return "The request was invalid.";
+    case 401:
+      return "Authentication required. Please log in.";
     case 404:
       return "Repository not found. It may need to be re-analyzed.";
     case 410:
@@ -69,20 +45,39 @@ function messageForStatus(status: number, detail?: string): string {
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = "GET", body, signal } = options;
 
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("accessToken") || localStorage.getItem("auth_token") || localStorage.getItem("token")
+      : null;
+
+  const headers: Record<string, string> = {};
+  if (body !== undefined) {
+    headers["Content-Type"] = "application/json";
+  }
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const url = `${API_BASE_URL}${path}`;
+  console.log(`[API Request] ${method} ${url}`, { body });
+
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    response = await fetch(url, {
       method,
-      headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
+      headers: Object.keys(headers).length > 0 ? headers : undefined,
       body: body !== undefined ? JSON.stringify(body) : undefined,
       signal,
       credentials: "include",
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
+      console.warn(`[API Aborted] ${method} ${url}`);
       throw new ApiError("Request cancelled.", 0, true);
     }
-    throw new ApiError("Couldn't reach the backend. Check your connection and that the API is running.", 0);
+    const errMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[API Network Error] ${method} ${url}`, error);
+    throw new ApiError(`Network error connecting to backend (${errMessage}). Ensure backend API is running at ${API_BASE_URL}`, 0);
   }
 
   if (!response.ok) {
@@ -91,20 +86,25 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       const errorBody = (await response.json()) as ApiErrorBody;
       detail = errorBody.detail;
     } catch {
-      // Response wasn't JSON — fall back to the generic per-status message.
+      // Response was not JSON
     }
-    throw new ApiError(messageForStatus(response.status, detail), response.status);
+    const finalMessage = messageForStatus(response.status, detail);
+    console.error(`[API Error Response] ${method} ${url} status=${response.status}`, { detail, finalMessage });
+    throw new ApiError(finalMessage, response.status);
   }
 
-  // No content responses (unlikely here, but defensive) shouldn't be parsed as JSON.
   if (response.status === 204) {
     return undefined as T;
   }
 
-  return (await response.json()) as T;
+  const data = (await response.json()) as T;
+  console.log(`[API Response Success] ${method} ${url} status=${response.status}`);
+  return data;
 }
 
 export const apiClient = {
   get: <T>(path: string, signal?: AbortSignal) => request<T>(path, { method: "GET", signal }),
   post: <T>(path: string, body?: unknown, signal?: AbortSignal) => request<T>(path, { method: "POST", body, signal }),
+  patch: <T>(path: string, body?: unknown, signal?: AbortSignal) => request<T>(path, { method: "PATCH", body, signal }),
+  delete: <T>(path: string, signal?: AbortSignal) => request<T>(path, { method: "DELETE", signal }),
 };

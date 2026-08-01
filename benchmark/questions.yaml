@@ -1,0 +1,24 @@
+architecture:
+  - Explain this repository.
+  - What architecture is used?
+  - Which technologies are present?
+
+navigation:
+  - Where is authentication implemented?
+  - Where is database logic?
+
+impact:
+  - What breaks if auth.py changes?
+  - Which modules depend on database.py?
+
+health:
+  - Which modules are risky?
+  - What should be refactored first?
+
+reasoning:
+  - Trace login flow.
+  - Explain request lifecycle.
+
+design:
+  - Which design patterns are used?
+  - Compare frontend and backend.

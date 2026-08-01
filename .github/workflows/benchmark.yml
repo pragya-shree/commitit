@@ -1,0 +1,57 @@
+name: AI Benchmark & Evaluation Suite
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  benchmark:
+    name: Run CommitIt AI Benchmark & Regression Detection
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install pytest pyyaml
+
+      - name: Run Benchmark Test Suite
+        run: |
+          pytest backend/tests/test_benchmark_runner.py backend/tests/test_benchmark_judge.py backend/tests/test_benchmark_regression.py backend/tests/test_benchmark_reporting.py
+
+      - name: Execute End-to-End AI Benchmark
+        run: |
+          python benchmark/runner.py
+
+      - name: Verify Quality Score Threshold
+        run: |
+          python -c "
+          import json
+          with open('benchmark/reports/evaluation.json', 'r') as f:
+              data = json.load(f)
+          score = data.get('overall_score', 0)
+          print(f'Benchmark Overall Quality Score: {score}/100')
+          if score < 80.0:
+              raise ValueError(f'Quality score drop below threshold: {score} < 80.0')
+          "
+
+      - name: Upload Benchmark Reports Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: commitit-benchmark-reports
+          path: |
+            benchmark/report.md
+            benchmark/reports/
+            benchmark/results/

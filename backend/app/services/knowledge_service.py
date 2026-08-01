@@ -62,74 +62,100 @@ def build(repository_id: str, local_path: Path) -> KnowledgeModel:
     Build a fresh Knowledge Model for a repository and store it, replacing
     any previously cached model for the same repository_id.
 
-    Runs the scanner, parser, and dependency graph exactly once each
-    (the graph builder reuses the parser's output rather than re-parsing).
+    Runs the scanner, parser, and dependency graph exactly once each.
     """
     start_time = time.time()
-    logger.info("Knowledge Model build started: %s", local_path)
+    logger.info("[Knowledge Model] START build for repo_id='%s' path='%s'", repository_id, local_path)
 
-    scan_result = scan_repository(local_path)
-    parse_result = parse_repository(local_path)
-    graph_result = build_dependency_graph_from_parsed(local_path, parse_result)
+    try:
+        t0 = time.time()
+        logger.info("[Knowledge Model] Stage 1/7: Scanner START...")
+        scan_result = scan_repository(local_path)
+        logger.info("[Knowledge Model] Stage 1/7: Scanner SUCCESS (%sms)", round((time.time() - t0) * 1000, 2))
 
-    repository_metadata = get_metadata(repository_id) or _fallback_metadata(local_path)
+        t0 = time.time()
+        logger.info("[Knowledge Model] Stage 2/7: Parser START...")
+        parse_result = parse_repository(local_path)
+        logger.info("[Knowledge Model] Stage 2/7: Parser SUCCESS (%sms)", round((time.time() - t0) * 1000, 2))
 
-    health_indicators = compute_repository_health(
-        local_path, scan_result, parse_result, graph_result
-    )
+        t0 = time.time()
+        logger.info("[Knowledge Model] Stage 3/7: Dependency Graph START...")
+        graph_result = build_dependency_graph_from_parsed(local_path, parse_result)
+        logger.info("[Knowledge Model] Stage 3/7: Dependency Graph SUCCESS (%sms)", round((time.time() - t0) * 1000, 2))
 
-    technologies = detect_technologies(local_path, scan_result)
+        t0 = time.time()
+        logger.info("[Knowledge Model] Stage 4/7: Repository Metadata START...")
+        repository_metadata = get_metadata(repository_id) or _fallback_metadata(local_path)
+        logger.info("[Knowledge Model] Stage 4/7: Repository Metadata SUCCESS (%sms)", round((time.time() - t0) * 1000, 2))
 
-    recent_discoveries = generate_discoveries(local_path, technologies, health_indicators)
+        t0 = time.time()
+        logger.info("[Knowledge Model] Stage 5/7: Repository Health START...")
+        health_indicators = compute_repository_health(
+            local_path, scan_result, parse_result, graph_result
+        )
+        logger.info("[Knowledge Model] Stage 5/7: Repository Health SUCCESS (%sms)", round((time.time() - t0) * 1000, 2))
 
-    model = KnowledgeModel(
-        repository_id=repository_id,
-        created_at=datetime.now(timezone.utc),
-        repository=repository_metadata,
-        scan_summary={
-            "total_files": scan_result["total_files"],
-            "total_directories": scan_result["total_directories"],
-        },
-        languages=scan_result["languages"],
-        largest_files=scan_result["largest_files"],
-        tree=scan_result["tree"],
-        parse_summary={
-            "total_files": parse_result["total_files"],
-            "total_classes": parse_result["total_classes"],
-            "total_functions": parse_result["total_functions"],
-            "total_imports": parse_result["total_imports"],
-        },
-        modules=parse_result["modules"],
-        graph_summary={
-            "total_nodes": graph_result["total_nodes"],
-            "total_edges": graph_result["total_edges"],
-        },
-        nodes=graph_result["nodes"],
-        edges=graph_result["edges"],
-        health_indicators=health_indicators,
-        technologies=technologies,
-        recent_discoveries=recent_discoveries,
-    )
+        t0 = time.time()
+        logger.info("[Knowledge Model] Stage 6/7: Technology Detection START...")
+        technologies = detect_technologies(local_path, scan_result)
+        logger.info("[Knowledge Model] Stage 6/7: Technology Detection SUCCESS (%sms)", round((time.time() - t0) * 1000, 2))
 
-    with _LOCK:
-        _STORE[repository_id] = model
+        t0 = time.time()
+        logger.info("[Knowledge Model] Stage 7/7: Recent Discoveries START...")
+        recent_discoveries = generate_discoveries(local_path, technologies, health_indicators)
+        logger.info("[Knowledge Model] Stage 7/7: Recent Discoveries SUCCESS (%sms)", round((time.time() - t0) * 1000, 2))
 
-    duration_ms = round((time.time() - start_time) * 1000, 2)
-    logger.info(
-        "Knowledge Model build completed: %s | files=%s modules=%s classes=%s "
-        "functions=%s graph_nodes=%s graph_edges=%s approx_size=%sKB duration=%sms",
-        repository_id,
-        scan_result["total_files"],
-        parse_result["total_files"],
-        parse_result["total_classes"],
-        parse_result["total_functions"],
-        graph_result["total_nodes"],
-        graph_result["total_edges"],
-        round(_approx_size_bytes(model) / 1024, 1),
-        duration_ms,
-    )
+        model = KnowledgeModel(
+            repository_id=repository_id,
+            created_at=datetime.now(timezone.utc),
+            repository=repository_metadata,
+            scan_summary={
+                "total_files": scan_result["total_files"],
+                "total_directories": scan_result["total_directories"],
+            },
+            languages=scan_result["languages"],
+            largest_files=scan_result["largest_files"],
+            tree=scan_result["tree"],
+            parse_summary={
+                "total_files": parse_result["total_files"],
+                "total_classes": parse_result["total_classes"],
+                "total_functions": parse_result["total_functions"],
+                "total_imports": parse_result["total_imports"],
+            },
+            modules=parse_result["modules"],
+            graph_summary={
+                "total_nodes": graph_result["total_nodes"],
+                "total_edges": graph_result["total_edges"],
+            },
+            nodes=graph_result["nodes"],
+            edges=graph_result["edges"],
+            health_indicators=health_indicators,
+            technologies=technologies,
+            recent_discoveries=recent_discoveries,
+        )
 
-    return model
+        with _LOCK:
+            _STORE[repository_id] = model
+
+        duration_ms = round((time.time() - start_time) * 1000, 2)
+        logger.info(
+            "[Knowledge Model] SUCCESS build for repo_id='%s' | files=%s modules=%s classes=%s "
+            "functions=%s graph_nodes=%s graph_edges=%s approx_size=%sKB duration=%sms",
+            repository_id,
+            scan_result["total_files"],
+            parse_result["total_files"],
+            parse_result["total_classes"],
+            parse_result["total_functions"],
+            graph_result["total_nodes"],
+            graph_result["total_edges"],
+            round(_approx_size_bytes(model) / 1024, 1),
+            duration_ms,
+        )
+        return model
+
+    except Exception as exc:
+        logger.exception("[Knowledge Model] FAILURE build for repo_id='%s' path='%s': %s", repository_id, local_path, exc)
+        raise
 
 
 def get_or_build(repository_id: str, local_path: Path) -> KnowledgeModel:

@@ -45,10 +45,20 @@ def setup_test_environment():
         shutil.rmtree("test_repositories", ignore_errors=True)
 
 
+@pytest.fixture
+def db_session():
+    """Yield a database session for unit tests."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 @pytest.fixture(autouse=True)
 def bypass_auth_for_non_auth_tests(request):
     """Override current_user and owner check dependencies automatically for legacy tests."""
-    if "test_auth" in request.module.__name__:
+    if "test_auth" in request.module.__name__ or "test_account" in request.module.__name__ or "test_dashboard" in request.module.__name__ or "test_analysis" in request.module.__name__:
         yield
         return
 
@@ -57,13 +67,13 @@ def bypass_auth_for_non_auth_tests(request):
     try:
         user = db.query(User).filter(User.id == "test_user_id").first()
         if not user:
-            user = User(id="test_user_id", username="testuser", password_hash="dummy")
+            user = User(id="test_user_id", email="testuser@commitit.local", username="testuser", display_name="Test User", password_hash="dummy")
             db.add(user)
             db.commit()
     finally:
         db.close()
 
-    dummy_user = User(id="test_user_id", username="testuser")
+    dummy_user = User(id="test_user_id", email="testuser@commitit.local", username="testuser", display_name="Test User")
     dummy_repo = UserRepository(
         id="cmt_dummy",
         user_id="test_user_id",

@@ -1,14 +1,14 @@
 import { useState, useMemo, useCallback, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { BookOpen, Sparkles } from "lucide-react";
-import { RepositoryUniverse, ReadmeShowcase } from "@/components/universe";
+import { RepositoryUniverse, ReadmeShowcase, type HeatMapModeId } from "@/components/universe";
 import { mapKnowledgeToUniverseData } from "@/components/universe/mapKnowledgeToUniverseData";
 import { AIExplanationPanel } from "@/components/explanation";
 import { mapExplanationToNodeExplanation } from "@/components/explanation/mapExplanationToNodeExplanation";
 import { LoadingState, ErrorState } from "@/components/ui";
 import { brand } from "@/theme";
 import { useApiRequest } from "@/hooks/useApiRequest";
-import { getExplanation, getKnowledge } from "@/services/api";
+import { getExplanation, getKnowledge, type ImpactAnalysisResult } from "@/services/api";
 import { SearchInsightPanel } from "@/components/search/SearchInsightPanel";
 import type { SearchInsightData } from "@/components/search/types";
 
@@ -23,6 +23,12 @@ export function UniversePage({ repositoryId }: UniversePageProps) {
   const [selectedNodeLabel, setSelectedNodeLabel] = useState<string | null>(null);
   const [isReadmeOpen, setIsReadmeOpen] = useState(false);
   const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
+
+  // Impact Radar specific state
+  const [impactAnalysis, setImpactAnalysis] = useState<ImpactAnalysisResult | null>(null);
+
+  // Heat Map state
+  const [heatMapMode, setHeatMapMode] = useState<HeatMapModeId | null>(null);
 
   // Search Insight specific states
   const [searchInsight, setSearchInsight] = useState<SearchInsightData | null>(null);
@@ -163,8 +169,12 @@ export function UniversePage({ repositoryId }: UniversePageProps) {
 
           <RepositoryUniverse
             data={universeData}
+            knowledge={knowledgeRequest.data?.knowledge || null}
             selectedNodeId={selectedNodeId}
             highlightedNodeIds={highlightedNodeIds}
+            impactAnalysis={impactAnalysis}
+            heatMapMode={heatMapMode}
+            onHeatMapModeChange={setHeatMapMode}
             onNodeSelect={handleNodeSelect}
           />
 
@@ -246,8 +256,12 @@ export function UniversePage({ repositoryId }: UniversePageProps) {
                 onClose={handleCloseToolsModal}
                 universeData={universeData}
                 knowledge={knowledgeRequest.data?.knowledge || null}
+                selectedNodeId={selectedNodeId}
+                heatMapMode={heatMapMode}
+                onHeatMapModeChange={setHeatMapMode}
                 onSelectNode={handleSelectNodeFromTools}
                 onSelectSearchResult={handleSelectSearchResult}
+                onImpactAnalysisChange={setImpactAnalysis}
               />
             </Suspense>
           )}

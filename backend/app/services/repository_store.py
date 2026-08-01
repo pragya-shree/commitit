@@ -9,7 +9,7 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.db.database import SessionLocal
+from app.db.database import Base, SessionLocal, engine
 from app.models.auth import UserRepository, User
 
 
@@ -26,6 +26,7 @@ def register(local_path: Path, metadata: dict | None = None) -> str:
     Register a local clone path and return its new repository_id.
     Ensures a default test user exists and copies the folder contents to configuration-derived directory.
     """
+    Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
         user = db.query(User).first()
@@ -103,45 +104,47 @@ def compute_folder_stats(path: Path) -> dict:
 
 def resolve(repository_id: str) -> Path:
     """
-    Look up the local path for a repository_id from the database.
+    Look up the local path for a repository_id from the database or storage disk.
     Derives path dynamically: settings.REPO_STORAGE_DIR / user_id / repository_id.
     """
     db = SessionLocal()
     try:
         repo = db.query(UserRepository).filter(UserRepository.id == repository_id).first()
+        if repo:
+            path = Path(settings.REPO_STORAGE_DIR) / str(repo.user_id) / str(repository_id)
+            if path.exists():
+                return path
+
+        storage_base = Path(settings.REPO_STORAGE_DIR)
+        if storage_base.exists():
+            for user_dir in storage_base.iterdir():
+                if user_dir.is_dir():
+                    candidate = user_dir / str(repository_id)
+                    if candidate.exists():
+                        return candidate
+
         if not repo:
             raise UnknownRepositoryIDError(f"Unknown repository_id: {repository_id}")
-
-        path = Path(settings.REPO_STORAGE_DIR) / str(repo.user_id) / str(repository_id)
-        if not path.exists():
-            raise RepositoryPathMissingError(f"Repository no longer exists on disk: {repository_id}")
-
-        return path
+        raise RepositoryPathMissingError(f"Repository no longer exists on disk: {repository_id}")
     finally:
         db.close()
 
 
 def get_metadata(repository_id: str) -> dict | None:
     """
-    Return repository owner, name, and default branch metadata from the database,
+    Return repository owner, name, and default branch metadata from the database or disk,
     calculating dynamic directory statistics on the fly.
     """
     db = SessionLocal()
     try:
         repo = db.query(UserRepository).filter(UserRepository.id == repository_id).first()
-        if not repo:
-            raise UnknownRepositoryIDError(f"Unknown repository_id: {repository_id}")
-
-        path = Path(settings.REPO_STORAGE_DIR) / str(repo.user_id) / str(repository_id)
-        if not path.exists():
-            raise RepositoryPathMissingError(f"Repository no longer exists on disk: {repository_id}")
-
+        path = resolve(repository_id)
         stats = compute_folder_stats(path)
         return {
-            "owner": repo.github_owner,
-            "name": repo.github_repo,
-            "branch": repo.default_branch,
-            **stats
+            "owner": repo.github_owner if repo else "github",
+            "name": repo.github_repo if repo else repository_id,
+            "branch": repo.default_branch if repo else "main",
+            **stats,
         }
     finally:
         db.close()

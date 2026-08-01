@@ -58,10 +58,17 @@ export interface ParseSummary {
   total_imports: number;
 }
 
+export interface ParsedModule {
+  path: string;
+  docstring?: string | null;
+  imports?: string[];
+}
+
 export interface ParseResponse {
   success: boolean;
   repository_id: string;
   summary: ParseSummary;
+  modules?: ParsedModule[];
 }
 
 // --- Dependency graph ---
@@ -125,6 +132,7 @@ export interface KnowledgeModel {
   largest_files: LargestFile[];
   tree: TreeNode;
   parse_summary: ParseSummary;
+  modules?: ParsedModule[];
   graph_summary: DependencyGraphSummary;
   nodes: GraphNode[];
   edges: GraphEdge[];
@@ -232,4 +240,81 @@ export interface ConversationResponse {
 /** The backend's uniform error body: `{"detail": "..."}` (FastAPI default, and our own global exception handler). */
 export interface ApiErrorBody {
   detail?: string;
+}
+
+// --- Impact Analysis Engine ---
+
+export type SemanticNodeState = "selected" | "direct" | "indirect" | "unaffected";
+
+export interface TargetInfo {
+  id: string;
+  name: string;
+  type: "folder" | "file" | "symbol";
+  path?: string | null;
+}
+
+export interface ImpactMetrics {
+  total_dependents: number;
+  direct_dependents_count: number;
+  indirect_dependents_count: number;
+  dependency_depth: number;
+  fan_in: number;
+  fan_out: number;
+  centrality_score: number;
+  entry_point_count: number;
+  affected_files_count: number;
+}
+
+export interface ExplainabilityFactor {
+  category: string;
+  title: string;
+  description: string;
+  impact_level: "positive" | "high" | "neutral" | "warning";
+}
+
+export interface DependencyChain {
+  target_id: string;
+  dependent_id: string;
+  steps: string[];
+  formatted: string;
+}
+
+export interface AffectedFile {
+  path: string;
+  impact_type: "direct" | "indirect";
+  symbol_count: number;
+}
+
+export interface AffectedSymbol {
+  id: string;
+  name: string;
+  type: string;
+  file_path: string;
+  impact_type: "direct" | "indirect";
+}
+
+export interface GraphNodeImpactState {
+  node_id: string;
+  state: SemanticNodeState;
+  node_type: string;
+}
+
+export interface ImpactAnalysisResult {
+  target: TargetInfo;
+  impact_score: number;
+  criticality: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  metrics: ImpactMetrics;
+  explainability: ExplainabilityFactor[];
+  reasons: string[];
+  dependency_chains: DependencyChain[];
+  affected_files: AffectedFile[];
+  affected_symbols: AffectedSymbol[];
+  graph_states: GraphNodeImpactState[];
+  folder_states: Record<string, SemanticNodeState>;
+}
+
+export interface ImpactResponse {
+  success: boolean;
+  repository_id: string;
+  impact: ImpactAnalysisResult;
 }

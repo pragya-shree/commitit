@@ -1,24 +1,51 @@
 """
-Authentication router.
-Handles register, login, logout, and token refresh endpoints.
+Authentication router for Phase 12 & 12.1 Production Authentication.
+Handles register, login, Google OAuth, logout, refresh, forgot/reset password, email verification.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Response, Request, status
+from datetime import datetime, timezone
+from typing import cast
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.database import get_db
 from app.models.auth import User
-from app.models.auth_schemas import UserLoginRequest, UserRegisterRequest, UserResponse
+from app.models.auth_schemas import (
+    ChangePasswordRequest,
+    ForgotPasswordRequest,
+    GoogleAuthRequest,
+    LinkProviderRequest,
+    ResetPasswordRequest,
+    UserLoginRequest,
+    UserRegisterRequest,
+    UserResponse,
+    VerifyEmailRequest,
+)
 from app.services.auth_service import (
+    check_rate_limit,
+    clear_failed_logins,
     create_access_token,
     create_refresh_token,
     decode_token,
     get_current_user,
+    track_failed_login,
+)
+from app.services.email_service import (
+    decode_email_token,
+    generate_email_token,
+    send_password_reset_email,
+    send_verification_email,
+)
+from app.services.google_auth_service import (
+    get_or_create_google_user,
+    verify_google_credential,
 )
 from app.services.user_service import (
-    create_user,
-    get_user_by_username,
+    change_user_password,
+    create_local_user,
+    get_user_by_email,
+    get_user_by_email_or_username,
     get_user_by_id,
     verify_password,
 )
@@ -26,66 +53,163 @@ from app.services.user_service import (
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-@router.post(
-    "/register",
-    response_model=UserResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Register a new user account"
-)
-def register(request: UserRegisterRequest, db: Session = Depends(get_db)) -> UserResponse:
-    """Create a new user account with unique username and hashed password."""
-    existing_user = get_user_by_username(db, request.username)
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already registered"
-        )
-    user = create_user(db, request.username, request.password)
-    return UserResponse.model_validate(user)
+def build_user_response(user: User) -> UserResponse:
+    """Build UserResponse with list of connected providers."""
+    providers_list = [p.provider for p in user.providers] if getattr(user, "providers", None) else [str(getattr(user, "provider", "local") or "local")]
+    resp = UserResponse.model_validate(user)
+    resp.connected_providers = providers_list
+    return resp
 
 
-@router.post(
-    "/login",
-    response_model=UserResponse,
-    summary="Log in and set authentication cookies"
-)
-def login(
-    request: UserLoginRequest,
-    response: Response,
-    db: Session = Depends(get_db)
-) -> UserResponse:
-    """Verify credentials and set secure, HTTP-only JWT cookies."""
-    user = get_user_by_username(db, request.username)
-    if not user or not verify_password(request.password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password"
-        )
+def set_auth_cookies(response: Response, user_id: str, remember_me: bool = False) -> None:
+    """Set secure HTTP-only access and refresh token cookies."""
+    access_token = create_access_token({"sub": str(user_id)})
+    refresh_token = create_refresh_token({"sub": str(user_id)}, remember_me=remember_me)
 
-    # Generate tokens
-    access_token = create_access_token({"sub": user.id})
-    refresh_token = create_refresh_token({"sub": user.id})
-
-    # Set HTTP-only cookies
     response.set_cookie(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=False,  # Set to True in HTTPS-enabled environments
+        secure=False,
         samesite="lax",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
+    days = 30 if remember_me else settings.REFRESH_TOKEN_EXPIRE_DAYS
     response.set_cookie(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
         secure=False,
         samesite="lax",
-        path="/api/v1/auth/refresh",  # Restrict refresh cookie exposure
-        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        path="/api/v1/auth/refresh",
+        max_age=days * 24 * 60 * 60,
     )
 
-    return UserResponse.model_validate(user)
+
+@router.post(
+    "/register",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Register a new local user account"
+)
+def register(
+    request: UserRegisterRequest,
+    response: Response,
+    db: Session = Depends(get_db)
+) -> UserResponse:
+    """Create local user account, send verification email token, and set auth cookies."""
+    user = create_local_user(
+        db=db,
+        email=request.email,
+        username=request.username,
+        password_raw=request.password,
+        display_name=request.display_name,
+    )
+    user.last_login_at = datetime.now(timezone.utc)
+    db.commit()
+
+    uid = str(user.id)
+    uemail = str(user.email)
+
+    # Dispatch verification email
+    verify_token = generate_email_token({"sub": uid, "action": "verify_email"}, expires_in_minutes=1440)
+    send_verification_email(uemail, verify_token)
+
+    set_auth_cookies(response, uid)
+    return build_user_response(user)
+
+
+@router.post(
+    "/login",
+    response_model=UserResponse,
+    summary="Log in with Email/Username and Password"
+)
+def login(
+    request: UserLoginRequest,
+    response: Response,
+    req_obj: Request,
+    db: Session = Depends(get_db)
+) -> UserResponse:
+    """Verify credentials with rate limiting and set authentication cookies."""
+    credential_input = request.email_or_username or request.username or ""
+    client_key = f"{credential_input.lower().strip()}_{req_obj.client.host if req_obj.client else 'unknown'}"
+    check_rate_limit(client_key)
+
+    user = get_user_by_email_or_username(db, credential_input)
+    if not user or not verify_password(request.password, str(user.password_hash) if user.password_hash else None):
+        track_failed_login(client_key)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email/username or password"
+        )
+
+    clear_failed_logins(client_key)
+    user.last_login_at = datetime.now(timezone.utc)
+    db.commit()
+
+    uid = str(user.id)
+    token_str = set_auth_cookies(response, uid, remember_me=request.remember_me or False)
+    
+    from app.services.user_service import create_or_update_user_session
+    user_agent = req_obj.headers.get("user-agent")
+    ip_addr = req_obj.client.host if req_obj.client else "127.0.0.1"
+    create_or_update_user_session(db, uid, session_token=f"session_{uid[:8]}", user_agent=user_agent, ip_address=ip_addr)
+
+    return build_user_response(user)
+
+
+@router.post(
+    "/google",
+    response_model=UserResponse,
+    summary="Authenticate with Google OAuth 2.0 Credential"
+)
+def google_login(
+    request: GoogleAuthRequest,
+    response: Response,
+    req_obj: Request,
+    db: Session = Depends(get_db)
+) -> UserResponse:
+    """Authenticate or provision user account via Google OAuth ID token."""
+    google_data = verify_google_credential(request.credential)
+    user = get_or_create_google_user(db, google_data)
+    user.last_login_at = datetime.now(timezone.utc)
+    db.commit()
+
+    uid = str(user.id)
+    set_auth_cookies(response, uid, remember_me=True)
+
+    from app.services.user_service import create_or_update_user_session
+    user_agent = req_obj.headers.get("user-agent")
+    ip_addr = req_obj.client.host if req_obj.client else "127.0.0.1"
+    create_or_update_user_session(db, uid, session_token=f"session_google_{uid[:8]}", user_agent=user_agent, ip_address=ip_addr)
+
+    return build_user_response(user)
+
+
+@router.post(
+    "/link-provider",
+    response_model=UserResponse,
+    summary="Link an external OAuth provider to the current user account"
+)
+def link_provider(
+    request: LinkProviderRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> UserResponse:
+    """Link an external OAuth account (Google, GitHub, etc.) to the logged-in user."""
+    if request.provider == "google":
+        google_data = verify_google_credential(request.credential)
+        google_id = google_data.get("sub") or "google_sub_id"
+        current_user.google_id = google_id
+        from app.services.google_auth_service import link_oauth_provider
+        link_oauth_provider(db, current_user, "google", google_id, google_data.get("email") or current_user.email)
+    else:
+        from app.services.google_auth_service import link_oauth_provider
+        link_oauth_provider(db, current_user, request.provider, f"{request.provider}_sub_id", current_user.email)
+
+    db.commit()
+    db.refresh(current_user)
+    return build_user_response(current_user)
 
 
 @router.post(
@@ -93,7 +217,7 @@ def login(
     summary="Log out and clear authentication cookies"
 )
 def logout(response: Response) -> dict:
-    """Delete access and refresh token cookies."""
+    """Clear access and refresh token cookies."""
     response.delete_cookie(key="access_token")
     response.delete_cookie(key="refresh_token", path="/api/v1/auth/refresh")
     return {"detail": "Logged out successfully"}
@@ -101,10 +225,10 @@ def logout(response: Response) -> dict:
 
 @router.post(
     "/refresh",
-    summary="Refresh access token cookie"
+    summary="Refresh access and refresh token cookies (Rotation)"
 )
 def refresh(request: Request, response: Response, db: Session = Depends(get_db)) -> dict:
-    """Verify refresh token cookie and set a fresh access token cookie."""
+    """Refresh access token and rotate refresh token cookie."""
     refresh_token = request.cookies.get("refresh_token")
     if not refresh_token:
         raise HTTPException(
@@ -120,6 +244,12 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
         )
 
     user_id = payload.get("sub")
+    if not user_id or not isinstance(user_id, str):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token payload"
+        )
+
     user = get_user_by_id(db, user_id)
     if not user:
         raise HTTPException(
@@ -127,19 +257,8 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
             detail="User not found"
         )
 
-    # Sign a new access token
-    new_access_token = create_access_token({"sub": user.id})
-
-    # Set new access token cookie
-    response.set_cookie(
-        key="access_token",
-        value=new_access_token,
-        httponly=True,
-        secure=False,
-        samesite="lax",
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-    )
-
+    # Refresh Token Rotation: issue fresh access and refresh token cookies
+    set_auth_cookies(response, str(user.id))
     return {"detail": "Token refreshed successfully"}
 
 
@@ -149,5 +268,127 @@ def refresh(request: Request, response: Response, db: Session = Depends(get_db))
     summary="Retrieve current user profile"
 )
 def get_me(current_user: User = Depends(get_current_user)) -> UserResponse:
-    """Get profile of the currently authenticated user."""
-    return UserResponse.model_validate(current_user)
+    """Get profile of currently logged-in user."""
+    return build_user_response(current_user)
+
+
+@router.post(
+    "/forgot-password",
+    summary="Trigger password reset email token"
+)
+def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db)) -> dict:
+    """Generate reset token and dispatch email without exposing account existence."""
+    user = get_user_by_email(db, request.email)
+    if user:
+        uid = str(user.id)
+        uemail = str(user.email)
+        reset_token = generate_email_token({"sub": uid, "action": "reset_password"}, expires_in_minutes=30)
+        send_password_reset_email(uemail, reset_token)
+
+    return {"detail": "If an account exists for this email, password reset instructions have been sent."}
+
+
+@router.post(
+    "/reset-password",
+    summary="Reset password using valid email token"
+)
+def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)) -> dict:
+    """Reset password using verified single-use token."""
+    payload = decode_email_token(request.token)
+    if not payload or payload.get("action") != "reset_password":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired password reset token"
+        )
+
+    user_id = payload.get("sub")
+    if not user_id or not isinstance(user_id, str):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid token payload"
+        )
+
+    user = get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User account not found"
+        )
+
+    change_user_password(db, user, request.new_password)
+    return {"detail": "Password has been successfully reset. Please log in with your new password."}
+
+
+@router.post(
+    "/change-password",
+    summary="Change password for authenticated user"
+)
+def change_password(
+    request: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> dict:
+    """Change password after verifying current password."""
+    if not current_user.password_hash:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="OAuth accounts do not have password credentials"
+        )
+
+    if not verify_password(request.current_password, str(current_user.password_hash)):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect current password"
+        )
+
+    change_user_password(db, current_user, request.new_password)
+    return {"detail": "Password changed successfully"}
+
+
+@router.post(
+    "/verify-email",
+    summary="Verify user email address with token"
+)
+def verify_email(request: VerifyEmailRequest, db: Session = Depends(get_db)) -> dict:
+    """Verify email address using link token."""
+    payload = decode_email_token(request.token)
+    if not payload or payload.get("action") != "verify_email":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification token"
+        )
+
+    user_id = payload.get("sub")
+    if not user_id or not isinstance(user_id, str):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid token payload"
+        )
+
+    user = get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User account not found"
+        )
+
+    user.email_verified = True
+    db.commit()
+    return {"detail": "Email address successfully verified"}
+
+
+@router.post(
+    "/resend-verification",
+    summary="Resend verification email to authenticated user"
+)
+def resend_verification(current_user: User = Depends(get_current_user)) -> dict:
+    """Resend email verification token to current user."""
+    if current_user.email_verified:
+        return {"detail": "Email address is already verified"}
+
+    uid = str(current_user.id)
+    uemail = str(current_user.email)
+
+    verify_token = generate_email_token({"sub": uid, "action": "verify_email"}, expires_in_minutes=1440)
+    send_verification_email(uemail, verify_token)
+    return {"detail": "Verification email has been resent"}

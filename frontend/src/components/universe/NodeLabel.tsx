@@ -24,7 +24,14 @@ export function NodeLabel({ label, meta, state, className }: NodeLabelProps) {
         className,
       )}
     >
-      <span className={cn("font-mono text-xs font-medium transition-colors duration-300", state === "hovered" ? "text-ink" : "text-ink-dim")}>
+      <span
+        className={cn(
+          "font-mono text-xs font-medium transition-colors duration-300",
+          state === "hovered" || state === "impact_selected" || state === "impact_direct" || state === "impact_indirect"
+            ? "text-ink font-bold"
+            : "text-ink-dim"
+        )}
+      >
         {label}
       </span>
       {meta && <span className="text-[10px] text-ink-faint">{meta}</span>}

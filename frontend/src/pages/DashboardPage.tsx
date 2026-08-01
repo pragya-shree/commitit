@@ -1,45 +1,84 @@
-import { RepositoryDashboard, mockDashboardData } from "@/components/dashboard";
+import { useState, useEffect } from "react";
+import {
+  RepositoryDashboard,
+  EmptyRepositoryState,
+  DashboardSkeleton,
+  mockDashboardData,
+} from "@/components/dashboard";
 import { mapKnowledgeToDashboardData } from "@/components/dashboard/mapKnowledgeToDashboardData";
-import { LoadingState, ErrorState } from "@/components/ui";
-import { useApiRequest } from "@/hooks/useApiRequest";
 import { getKnowledge } from "@/services/api";
 
-/**
- * DashboardPage — wraps RepositoryDashboard with real backend metrics
- * (file/folder/symbol/relationship counts and language breakdown, from
- * the same GET /repository/{id}/knowledge call UniversePage already
- * uses) merged with the sections that stay mock (technologies, key
- * insights, recent discoveries, health indicators — see
- * mapKnowledgeToDashboardData for why those specifically can't be real
- * yet). `mockDashboardData` supplies only those still-mock sections;
- * its own repository/metrics/languageBreakdown fields are discarded in
- * favor of the real response.
- */
-
 interface DashboardPageProps {
-  repositoryId: string;
+  repositoryId?: string;
   onViewUniverse?: () => void;
+  onSelectRepository?: (id: string, name: string) => void;
+  onOpenAssistant?: (sessionId?: string) => void;
+  onOpenUniverse?: (repoId: string) => void;
+  onImportRepoClick?: () => void;
 }
 
-export function DashboardPage({ repositoryId, onViewUniverse }: DashboardPageProps) {
-  const knowledgeRequest = useApiRequest((signal) => getKnowledge(repositoryId, signal), [repositoryId]);
+export function DashboardPage({
+  repositoryId,
+  onViewUniverse,
+  onOpenUniverse,
+  onImportRepoClick = () => {},
+}: DashboardPageProps) {
+  const [knowledgeData, setKnowledgeData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const dashboardData = knowledgeRequest.data
-    ? mapKnowledgeToDashboardData(knowledgeRequest.data.knowledge, {
+  useEffect(() => {
+    if (!repositoryId) {
+      setKnowledgeData(null);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    getKnowledge(repositoryId)
+      .then((res) => {
+        if (res?.knowledge) {
+          setKnowledgeData(res.knowledge);
+        }
+      })
+      .catch((err: any) => {
+        setError(err?.message || "Failed to load repository details.");
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [repositoryId]);
+
+  if (!repositoryId) {
+    return (
+      <EmptyRepositoryState
+        onImportClick={onImportRepoClick}
+        onBrowseUniverseClick={() => onViewUniverse?.()}
+      />
+    );
+  }
+
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
+
+  const mappedRepoMetrics = knowledgeData
+    ? mapKnowledgeToDashboardData(knowledgeData, {
         keyInsights: mockDashboardData.keyInsights,
       })
-    : null;
+    : mockDashboardData;
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] pb-12 pt-4">
-
-      {knowledgeRequest.loading && <LoadingState message="Loading repository metrics…" />}
-
-      {knowledgeRequest.error && !knowledgeRequest.loading && (
-        <ErrorState message={knowledgeRequest.error} onRetry={knowledgeRequest.retry} />
+    <div className="min-h-[calc(100vh-5rem)] pb-12 pt-2">
+      {error && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 mb-4 p-4 rounded-xl border border-coral/30 bg-coral/10 text-xs font-mono text-coral">
+          {error}
+        </div>
       )}
-
-      {dashboardData && <RepositoryDashboard data={dashboardData} onViewUniverse={onViewUniverse} />}
+      <RepositoryDashboard
+        data={mappedRepoMetrics}
+        onViewUniverse={onViewUniverse || (() => repositoryId && onOpenUniverse?.(repositoryId))}
+      />
     </div>
   );
 }

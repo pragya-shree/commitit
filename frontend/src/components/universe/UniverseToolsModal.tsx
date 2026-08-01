@@ -1,12 +1,13 @@
 import React, { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Compass, Zap, ArrowLeft, X, ChevronRight } from "lucide-react";
+import { Search, Compass, Zap, Flame, ArrowLeft, X, ChevronRight } from "lucide-react";
 import { brand } from "@/theme";
-import type { KnowledgeModel } from "@/services/api";
+import type { KnowledgeModel, ImpactAnalysisResult } from "@/services/api";
 import type { RepositoryUniverseData } from "./types";
 import { UniverseSearch } from "./UniverseSearch";
 import { StartHere } from "./StartHere/StartHere";
 import { ImpactRadar } from "./ImpactRadar/ImpactRadar";
+import { HeatMap, type HeatMapModeId } from "./HeatMap";
 import type { SearchInsightData } from "@/components/search/types";
 
 interface UniverseToolsModalProps {
@@ -14,8 +15,12 @@ interface UniverseToolsModalProps {
   onClose: () => void;
   universeData: RepositoryUniverseData | null;
   knowledge?: KnowledgeModel | null;
+  selectedNodeId?: string | null;
+  heatMapMode?: HeatMapModeId | null;
+  onHeatMapModeChange?: (mode: HeatMapModeId | null) => void;
   onSelectNode?: (targetNodeId: string, targetNodeLabel: string) => void;
   onSelectSearchResult?: (insight: SearchInsightData, targetNodeId: string, highlightNodeIds: string[]) => void;
+  onImpactAnalysisChange?: (result: ImpactAnalysisResult | null) => void;
 }
 
 export const UniverseToolsModal = React.memo(function UniverseToolsModal({
@@ -23,8 +28,12 @@ export const UniverseToolsModal = React.memo(function UniverseToolsModal({
   onClose,
   universeData,
   knowledge = null,
+  selectedNodeId,
+  heatMapMode = null,
+  onHeatMapModeChange,
   onSelectNode,
   onSelectSearchResult,
+  onImpactAnalysisChange,
 }: UniverseToolsModalProps) {
   const [activeToolIndex, setActiveToolIndex] = useState<number | null>(null);
 
@@ -60,7 +69,7 @@ export const UniverseToolsModal = React.memo(function UniverseToolsModal({
       icon: Search,
       color: brand.cyan,
       emoji: "🌌",
-      sub: "Semantic search across folders and files"
+      sub: "Semantic search across folders and files",
     },
     {
       title: "Start Here",
@@ -68,7 +77,7 @@ export const UniverseToolsModal = React.memo(function UniverseToolsModal({
       icon: Compass,
       color: brand.mint,
       emoji: "🚪",
-      sub: "Evidence-based onboarding checkpoints"
+      sub: "Evidence-based onboarding checkpoints",
     },
     {
       title: "Impact Radar",
@@ -76,8 +85,16 @@ export const UniverseToolsModal = React.memo(function UniverseToolsModal({
       icon: Zap,
       color: brand.coral,
       emoji: "⚡",
-      sub: "Predictive blast radius analyzer"
-    }
+      sub: "Predictive blast radius analyzer",
+    },
+    {
+      title: "Heat Map",
+      description: "Instantly identify architectural hotspots, dependency bottlenecks, and risk areas.",
+      icon: Flame,
+      color: brand.amber,
+      emoji: "🔥",
+      sub: "Visual hotspot & complexity analyzer",
+    },
   ];
 
   return (
@@ -140,7 +157,7 @@ export const UniverseToolsModal = React.memo(function UniverseToolsModal({
             {/* Modal Body */}
             <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
               {activeToolIndex === null ? (
-                /* Grid of Tools - 2 Column Layout with empty spaces preserved */
+                /* Grid of Tools - 2 Column Layout with 4 universe tools */
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {universeTools.map((tool, idx) => {
                     const IconComp = tool.icon;
@@ -161,7 +178,7 @@ export const UniverseToolsModal = React.memo(function UniverseToolsModal({
                             style={{
                               borderColor: `${tool.color}20`,
                               backgroundColor: `${tool.color}0a`,
-                              color: tool.color
+                              color: tool.color,
                             }}
                           >
                             <IconComp className="h-5 w-5" />
@@ -200,7 +217,26 @@ export const UniverseToolsModal = React.memo(function UniverseToolsModal({
                   )}
 
                   {activeToolIndex === 2 && (
-                    <ImpactRadar />
+                    <ImpactRadar
+                      knowledge={knowledge}
+                      selectedNodeId={selectedNodeId}
+                      onSelectNode={(nodeId) => handleSelectStartNode(nodeId, nodeId)}
+                      onImpactAnalysisChange={onImpactAnalysisChange}
+                    />
+                  )}
+
+                  {activeToolIndex === 3 && (
+                    <HeatMap
+                      knowledge={knowledge}
+                      universeData={universeData}
+                      activeMode={heatMapMode || "risk"}
+                      onSelectMode={(mode) => onHeatMapModeChange?.(mode)}
+                      onSelectNode={(nodeId, label) => handleSelectStartNode(nodeId, label)}
+                      onApplyHeatMapToGraph={(mode) => {
+                        onHeatMapModeChange?.(mode);
+                        handleClose();
+                      }}
+                    />
                   )}
                 </div>
               )}

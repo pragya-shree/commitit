@@ -17,3 +17,5 @@ export * from "./NodeLabel";
 export * from "./types";
 export * from "./mockUniverseData";
 export * from "./ReadmeShowcase";
+export * from "./HeatMap";
+

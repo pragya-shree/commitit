@@ -38,7 +38,16 @@ export interface RepositoryUniverseData {
   connections: RepositoryConnectionData[];
 }
 
-/** Shared visual state every node/connection derives from hover: is this the hovered node, connected to it, or neither. */
-export type NodeVisualState = "default" | "hovered" | "related" | "dimmed";
+/** Shared visual state every node/connection derives from hover or impact radar: is this the hovered node, connected to it, or impact-highlighted. */
+export type NodeVisualState =
+  | "default"
+  | "hovered"
+  | "related"
+  | "dimmed"
+  | "impact_selected"
+  | "impact_direct"
+  | "impact_indirect"
+  | "heatmap_active";
 
 export type ConnectionVisualState = "default" | "active" | "dimmed";
+

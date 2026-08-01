@@ -156,6 +156,43 @@ def get_relationships(model: KnowledgeModel, symbol: str) -> dict:
     }
 
 
+import re
+
+CONCEPT_SYNONYMS: dict[str, list[str]] = {
+    "auth": ["auth", "authentication", "login", "signin", "signup", "jwt", "bearer", "token", "oauth", "middleware", "session", "password", "user"],
+    "authentication": ["auth", "authentication", "login", "signin", "signup", "jwt", "bearer", "token", "oauth", "middleware", "session", "password", "user"],
+    "login": ["login", "signin", "auth", "authentication", "jwt", "bearer", "user", "password", "session"],
+    "database": ["database", "db", "models", "schema", "sql", "orm", "sqlalchemy", "table", "alembic", "crud", "query"],
+    "db": ["database", "db", "models", "schema", "sql", "orm", "sqlalchemy", "table", "alembic", "crud", "query"],
+    "api": ["api", "route", "routes", "router", "endpoint", "endpoints", "http", "rest", "fastapi", "handler"],
+    "routing": ["route", "routes", "router", "endpoint", "fastapi", "url", "dispatch"],
+    "health": ["health", "quality", "debt", "complexity", "maintainability", "score"],
+    "impact": ["impact", "radar", "blast", "radius", "dependents", "graph", "coupling"],
+    "graph": ["graph", "nodes", "edges", "coupling", "dependency", "relationships"],
+}
+
+
+def expand_query_candidates(query: str) -> list[str]:
+    """Expand a search query string into semantic candidate terms for robust multi-candidate matching."""
+    q_lower = query.lower().strip()
+    words = [w for w in re.split(r"\W+", q_lower) if w]
+    candidates = [query]
+
+    for word in words:
+        if word in CONCEPT_SYNONYMS:
+            for syn in CONCEPT_SYNONYMS[word]:
+                if syn not in candidates:
+                    candidates.append(syn)
+
+    for key, syns in CONCEPT_SYNONYMS.items():
+        if key in q_lower:
+            for syn in syns:
+                if syn not in candidates:
+                    candidates.append(syn)
+
+    return candidates
+
+
 def search(model: KnowledgeModel, query: str) -> dict:
     """Aggregate search across repository metadata, files, classes, functions, and imports."""
     needle = query.lower()
@@ -172,3 +209,49 @@ def search(model: KnowledgeModel, query: str) -> dict:
         "functions": list_functions(model, query),
         "imports": list_imports(model, query),
     }
+
+
+def multi_candidate_search(model: KnowledgeModel, query: str) -> dict:
+    """Execute candidate expansion search, merge, rank, and deduplicate matching results across terms."""
+    candidates = expand_query_candidates(query)
+    aggregated_files: dict[str, dict] = {}
+    aggregated_classes: dict[str, dict] = {}
+    aggregated_functions: dict[str, dict] = {}
+    aggregated_imports: dict[str, dict] = {}
+
+    for cand in candidates:
+        res = search(model, cand)
+        for f in res.get("files", []):
+            aggregated_files[f["path"]] = f
+        for c in res.get("classes", []):
+            key = f"{c['module']}::{c['name']}"
+            aggregated_classes[key] = c
+        for fn in res.get("functions", []):
+            key = fn.get("qualified_name") or f"{fn['module']}::{fn['name']}"
+            aggregated_functions[key] = fn
+        for imp in res.get("imports", []):
+            key = f"{imp['module']}->{imp['imported']}"
+            aggregated_imports[key] = imp
+
+    classes_list = list(aggregated_classes.values())
+    functions_list = list(aggregated_functions.values())
+
+    symbols = [
+        {"name": cls["name"], "type": "class", "module": cls["module"], "qualified_name": f"{cls['module']}::{cls['name']}", "docstring": cls.get("docstring")}
+        for cls in classes_list
+    ] + [
+        {"name": func["name"], "type": "function", "module": func["module"], "qualified_name": func.get("qualified_name", f"{func['module']}::{func['name']}"), "docstring": func.get("docstring")}
+        for func in functions_list
+    ]
+
+    return {
+        "query": query,
+        "expanded_candidates": candidates,
+        "repository_match": any(search(model, c).get("repository_match") for c in candidates),
+        "files": list(aggregated_files.values()),
+        "classes": classes_list,
+        "functions": functions_list,
+        "imports": list(aggregated_imports.values()),
+        "symbols": symbols,
+    }
+

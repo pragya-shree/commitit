@@ -6,6 +6,7 @@ import type {
   ConversationResponse,
   DependencyGraphResponse,
   ExplanationResponse,
+  ImpactResponse,
   KnowledgeResponse,
   ParseResponse,
   ProvidersStatusResponse,
@@ -70,6 +71,15 @@ export function getConversation(
   signal?: AbortSignal,
 ): Promise<ConversationResponse> {
   return apiClient.get<ConversationResponse>(`/repository/${repositoryId}/conversations/${conversationId}`, signal);
+}
+
+export function getImpactAnalysis(
+  repositoryId: string,
+  target: string,
+  signal?: AbortSignal,
+): Promise<ImpactResponse> {
+  const encodedTarget = encodeURIComponent(target);
+  return apiClient.get<ImpactResponse>(`/repository/${repositoryId}/impact?target=${encodedTarget}`, signal);
 }
 
 /**

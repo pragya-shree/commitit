@@ -1,0 +1,15 @@
+repositories:
+  - name: FastAPI
+    url: https://github.com/fastapi/fastapi
+
+  - name: React
+    url: https://github.com/facebook/react
+
+  - name: Flask
+    url: https://github.com/pallets/flask
+
+  - name: Express
+    url: https://github.com/expressjs/express
+
+  - name: Django
+    url: https://github.com/django/django

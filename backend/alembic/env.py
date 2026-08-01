@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.db.database import Base
 # Ensure all models are imported so they are registered on the Base metadata
 from app.models.auth import User, UserRepository, AnalysisHistory
+from app.models.ai_chat import AIChatSession, AIChatMessage, AIChatToolCall
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

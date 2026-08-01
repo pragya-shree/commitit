@@ -16,6 +16,9 @@ from git import Repo
 from git.exc import GitCommandError
 
 from app.core.logging import get_logger
+from app.models.auth import User, UserRepository
+from app.core.config import settings
+import uuid
 
 logger = get_logger(__name__)
 
@@ -142,19 +145,30 @@ def clone_repository(github_url: str, user_id: str, db: Session) -> dict:
     metadata = _collect_metadata(clone_path, owner, name, repo)
     default_branch = metadata.get("branch") or "main"
 
-    # Register repository in database
-    db_repo = UserRepository(
-        id=repository_id,
-        user_id=user_id,
-        name=name,
-        github_owner=owner,
-        github_repo=name,
-        github_url=github_url,
-        default_branch=default_branch,
-    )
-    db.add(db_repo)
-    db.commit()
-    db.refresh(db_repo)
+    # Register repository in database if valid user exists
+    user_exists = db.query(User).filter(User.id == user_id).first() if user_id else None
+    if not user_exists:
+        user_exists = db.query(User).first()
+        if user_exists:
+            user_id = user_exists.id
+
+    if user_exists:
+        db_repo = UserRepository(
+            id=repository_id,
+            user_id=user_id,
+            name=name,
+            github_owner=owner,
+            github_repo=name,
+            github_url=github_url,
+            default_branch=default_branch,
+        )
+        db.add(db_repo)
+        try:
+            db.commit()
+            db.refresh(db_repo)
+        except Exception as exc:
+            db.rollback()
+            logger.warning("Could not register UserRepository in DB: %s", exc)
 
     return {"repository_id": repository_id, "metadata": metadata}
 

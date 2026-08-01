@@ -33,7 +33,7 @@ import { AnalysisStage, type AnalysisStageStatus } from "./AnalysisStage";
 interface AnalysisOverlayProps {
   open: boolean;
   repositoryId: string | null;
-  onComplete?: () => void;
+  onComplete?: (metadata?: { name: string; owner?: string }) => void;
   /** Called when the user cancels mid-analysis, or dismisses it once complete. */
   onClose?: () => void;
 }
@@ -58,7 +58,10 @@ export function AnalysisOverlay({ open, repositoryId, onComplete, onClose }: Ana
   const isReady = isAnimationComplete && knowledgeRequest.data !== null;
 
   useEffect(() => {
-    if (isReady) onComplete?.();
+    if (isReady) {
+      const repoMeta = knowledgeRequest.data?.knowledge?.repository;
+      onComplete?.(repoMeta ? { name: repoMeta.name, owner: repoMeta.owner } : undefined);
+    }
     // onComplete intentionally omitted — only isReady's true→false/false→true transition should re-fire this, not identity changes of the callback prop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReady]);

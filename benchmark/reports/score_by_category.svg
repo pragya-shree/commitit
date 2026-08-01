@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 380" width="700" height="380" style="background-color: #0f172a; font-family: system-ui, -apple-system, sans-serif;">
+  <defs>
+    <linearGradient id="barGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+  </defs>
+  <text x="350" y="35" text-anchor="middle" fill="#f8fafc" font-size="18" font-weight="700">CommitIt Score by Category</text>
+  <text x="150" y="94.64285714285714" text-anchor="end" fill="#94a3b8" font-size="13">Architecture</text>
+  <rect x="160" y="79.14285714285714" width="500" height="21" rx="4" fill="#1e293b"/>
+  <rect x="160" y="79.14285714285714" width="480.0" height="21" rx="4" fill="url(#barGrad)"/>
+  <text x="650.0" y="94.64285714285714" fill="#38bdf8" font-size="13" font-weight="600">96.0%</text>
+  <text x="150" y="134.78571428571428" text-anchor="end" fill="#94a3b8" font-size="13">Navigation</text>
+  <rect x="160" y="119.28571428571428" width="500" height="21" rx="4" fill="#1e293b"/>
+  <rect x="160" y="119.28571428571428" width="465.0" height="21" rx="4" fill="url(#barGrad)"/>
+  <text x="635.0" y="134.78571428571428" fill="#38bdf8" font-size="13" font-weight="600">93.0%</text>
+  <text x="150" y="174.92857142857142" text-anchor="end" fill="#94a3b8" font-size="13">Impact</text>
+  <rect x="160" y="159.42857142857142" width="500" height="21" rx="4" fill="#1e293b"/>
+  <rect x="160" y="159.42857142857142" width="455.0" height="21" rx="4" fill="url(#barGrad)"/>
+  <text x="625.0" y="174.92857142857142" fill="#38bdf8" font-size="13" font-weight="600">91.0%</text>
+  <text x="150" y="215.07142857142856" text-anchor="end" fill="#94a3b8" font-size="13">Health</text>
+  <rect x="160" y="199.57142857142856" width="500" height="21" rx="4" fill="#1e293b"/>
+  <rect x="160" y="199.57142857142856" width="485.0" height="21" rx="4" fill="url(#barGrad)"/>
+  <text x="655.0" y="215.07142857142856" fill="#38bdf8" font-size="13" font-weight="600">97.0%</text>
+  <text x="150" y="255.2142857142857" text-anchor="end" fill="#94a3b8" font-size="13">Reasoning</text>
+  <rect x="160" y="239.7142857142857" width="500" height="21" rx="4" fill="#1e293b"/>
+  <rect x="160" y="239.7142857142857" width="470.0" height="21" rx="4" fill="url(#barGrad)"/>
+  <text x="640.0" y="255.2142857142857" fill="#38bdf8" font-size="13" font-weight="600">94.0%</text>
+  <text x="150" y="295.35714285714283" text-anchor="end" fill="#94a3b8" font-size="13">Design</text>
+  <rect x="160" y="279.85714285714283" width="500" height="21" rx="4" fill="#1e293b"/>
+  <rect x="160" y="279.85714285714283" width="475.0" height="21" rx="4" fill="url(#barGrad)"/>
+  <text x="645.0" y="295.35714285714283" fill="#38bdf8" font-size="13" font-weight="600">95.0%</text>
+</svg>

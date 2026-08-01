@@ -51,8 +51,8 @@ export function RepositoryUrlForm({ onAnalyze, cloneLoading = false, cloneError 
 
   const validationError =
     status === "error" ? "Enter a valid GitHub repository URL, e.g. https://github.com/vercel/next.js" : null;
-  const helperText = validationError ?? cloneError ?? undefined;
-  const hasError = validationError !== null || cloneError !== null;
+  const helperText = validationError ?? (cloneError && status === "error" ? cloneError : undefined);
+  const hasError = validationError !== null || (status === "error" && Boolean(cloneError));
 
   return (
     <form onSubmit={handleSubmit} noValidate className="flex w-full flex-col gap-3 sm:flex-row sm:items-start">
