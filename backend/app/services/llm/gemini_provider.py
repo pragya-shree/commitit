@@ -12,6 +12,7 @@ back to the deterministic Explanation Engine instead of crashing.
 import json
 import urllib.error
 import urllib.request
+from typing import Any
 
 from app.services import explanation_service
 from app.services.llm.base import LLMProvider, ProviderRequestError
