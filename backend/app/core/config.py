@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
 
-    # CORS configuration
+   # CORS configuration
     CORS_ORIGINS: List[str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
@@ -28,6 +28,12 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5174",
         "http://localhost:4173",
         "http://127.0.0.1:4173",
+
+        # Production frontend
+        "https://commitit-seven.vercel.app",
+
+        # Preview deployment
+        "https://commitit-4qygsb00s-hello-99fc.vercel.app",
     ]
 
     # Optional Gemini LLM configuration. If GEMINI_API_KEY is not set,
