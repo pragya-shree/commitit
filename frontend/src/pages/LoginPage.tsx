@@ -1,16 +1,17 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { motion } from "framer-motion";
 import { AuthBackground } from "@/components/auth/AuthBackground";
 import { User, Lock, Sparkles, ArrowRight, CheckSquare, Square, Eye, EyeOff } from "lucide-react";
 import { ForgotPasswordModal } from "@/components/auth/ForgotPasswordModal";
+import { redirectToGoogleLogin } from "@/services/api";
 
 interface LoginPageProps {
   onToggleRegister: () => void;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onToggleRegister }) => {
-  const { login, loginWithGoogle } = useAuth();
+  const { login } = useAuth();
   const [emailOrUsername, setEmailOrUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -18,6 +19,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onToggleRegister }) => {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlError = params.get("error");
+    if (urlError) {
+      setError(urlError);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,16 +47,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onToggleRegister }) => {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setError(null);
-    setIsSubmitting(true);
-    try {
-      await loginWithGoogle("google_oauth_id_token_credential");
-    } catch (err: any) {
-      setError(err?.message || "Google sign-in failed. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleGoogleLogin = () => {
+    redirectToGoogleLogin();
   };
 
   return (

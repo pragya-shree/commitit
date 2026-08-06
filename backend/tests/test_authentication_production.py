@@ -140,6 +140,29 @@ def test_google_oauth_signup_and_login():
     assert "access_token" in res.cookies
 
 
+def test_google_oauth_login_redirect_and_url():
+    """Verify Google OAuth authorization redirect and URL generation endpoints."""
+    from app.core.config import settings
+    old_id = settings.GOOGLE_CLIENT_ID
+    old_uri = settings.GOOGLE_REDIRECT_URI
+    settings.GOOGLE_CLIENT_ID = "test_client_id"
+    settings.GOOGLE_REDIRECT_URI = "http://localhost:8000/api/v1/auth/google/callback"
+
+    try:
+        res_redir = client.get("/api/v1/auth/google/login", follow_redirects=False)
+        assert res_redir.status_code == 307
+        assert "accounts.google.com" in res_redir.headers["location"]
+        assert "prompt=select_account" in res_redir.headers["location"]
+
+        res_url = client.get("/api/v1/auth/google/url")
+        assert res_url.status_code == 200
+        assert "accounts.google.com" in res_url.json()["url"]
+        assert "prompt=select_account" in res_url.json()["url"]
+    finally:
+        settings.GOOGLE_CLIENT_ID = old_id
+        settings.GOOGLE_REDIRECT_URI = old_uri
+
+
 def test_email_verification_flow():
     """Verify email verification token marks email_verified = True."""
     reg = client.post(
@@ -164,6 +187,7 @@ def test_forgot_and_reset_password_flow():
     )
     db = SessionLocal()
     user = db.query(User).filter_by(email="reset@example.com").first()
+    assert user is not None
     reset_token = generate_email_token({"sub": user.id, "action": "reset_password"})
     db.close()
 

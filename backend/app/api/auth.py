@@ -3,10 +3,14 @@ Authentication router for Phase 12 & 12.1 Production Authentication.
 Handles register, login, Google OAuth, logout, refresh, forgot/reset password, email verification.
 """
 
+import logging
 from datetime import datetime, timezone
 from typing import cast
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.core.config import settings
 from app.db.database import get_db
@@ -38,6 +42,8 @@ from app.services.email_service import (
     send_verification_email,
 )
 from app.services.google_auth_service import (
+    exchange_code_for_google_user,
+    get_google_authorization_url,
     get_or_create_google_user,
     verify_google_credential,
 )
@@ -63,8 +69,8 @@ def build_user_response(user: User) -> UserResponse:
 
 def set_auth_cookies(response: Response, user_id: str, remember_me: bool = False) -> None:
     """Set secure HTTP-only access and refresh token cookies."""
-    access_token = create_access_token({"sub": str(user_id)})
-    refresh_token = create_refresh_token({"sub": str(user_id)}, remember_me=remember_me)
+    access_token = create_access_token({"sub": user_id})
+    refresh_token = create_refresh_token({"sub": user_id}, remember_me=remember_me)
 
     response.set_cookie(
         key="access_token",
@@ -158,6 +164,85 @@ def login(
     return build_user_response(user)
 
 
+@router.get(
+    "/google/login",
+    summary="Redirect user to Google OAuth 2.0 consent screen"
+)
+def google_login_redirect(state: str | None = None):
+    """Initiate Google OAuth 2.0 flow by redirecting to Google's official consent screen."""
+    try:
+        auth_url = get_google_authorization_url(state=state)
+        return RedirectResponse(url=auth_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc)
+        )
+
+
+@router.get(
+    "/google/url",
+    summary="Get Google OAuth 2.0 authorization URL in JSON format"
+)
+def get_google_login_url(state: str | None = None) -> dict:
+    """Return the Google OAuth 2.0 consent screen URL."""
+    try:
+        auth_url = get_google_authorization_url(state=state)
+        return {"url": auth_url}
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc)
+        )
+
+
+@router.get(
+    "/google/callback",
+    summary="Google OAuth 2.0 authorization code callback"
+)
+def google_oauth_callback(
+    req_obj: Request,
+    code: str | None = None,
+    error: str | None = None,
+    state: str | None = None,
+    db: Session = Depends(get_db),
+):
+    """Callback endpoint for Google OAuth authorization code exchange."""
+    frontend_base = settings.FRONTEND_URL.rstrip("/") if settings.FRONTEND_URL else "http://localhost:5173"
+
+    if error:
+        logger.error(f"Google OAuth authorization error: {error}")
+        return RedirectResponse(url=f"{frontend_base}/login?error={error}", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
+    if not code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing authorization code in Google OAuth callback"
+        )
+
+    try:
+        google_data = exchange_code_for_google_user(code)
+        user = get_or_create_google_user(db, google_data)
+        user.last_login_at = datetime.now(timezone.utc)
+        db.commit()
+
+        uid = str(user.id)
+        redirect_url = f"{frontend_base}/"
+        response = RedirectResponse(url=redirect_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
+        set_auth_cookies(response, uid, remember_me=True)
+
+        from app.services.user_service import create_or_update_user_session
+        user_agent = req_obj.headers.get("user-agent") if req_obj else None
+        ip_addr = req_obj.client.host if req_obj and req_obj.client else "127.0.0.1"
+        create_or_update_user_session(db, uid, session_token=f"session_google_{uid[:8]}", user_agent=user_agent, ip_address=ip_addr)
+
+        return response
+    except Exception as exc:
+        logger.error(f"Google OAuth callback processing failed: {exc}")
+        return RedirectResponse(url=f"{frontend_base}/login?error=Google+authentication+failed", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
+
 @router.post(
     "/google",
     response_model=UserResponse,
@@ -197,15 +282,16 @@ def link_provider(
     db: Session = Depends(get_db)
 ) -> UserResponse:
     """Link an external OAuth account (Google, GitHub, etc.) to the logged-in user."""
+    user_email = str(current_user.email)
     if request.provider == "google":
         google_data = verify_google_credential(request.credential)
         google_id = google_data.get("sub") or "google_sub_id"
         current_user.google_id = google_id
         from app.services.google_auth_service import link_oauth_provider
-        link_oauth_provider(db, current_user, "google", google_id, google_data.get("email") or current_user.email)
+        link_oauth_provider(db, current_user, "google", google_id, str(google_data.get("email")) if google_data.get("email") else user_email)
     else:
         from app.services.google_auth_service import link_oauth_provider
-        link_oauth_provider(db, current_user, request.provider, f"{request.provider}_sub_id", current_user.email)
+        link_oauth_provider(db, current_user, request.provider, f"{request.provider}_sub_id", user_email)
 
     db.commit()
     db.refresh(current_user)

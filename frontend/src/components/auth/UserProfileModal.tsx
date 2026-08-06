@@ -39,7 +39,7 @@ import {
   downloadAccountExport,
   fetchActivity,
   fetchUserSessions,
-  linkProvider,
+  redirectToGoogleLogin,
   removeAvatar,
   resendEmailVerification,
   terminateAllOtherSessions,
@@ -268,13 +268,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ onClose }) =
     }
   };
 
-  const handleLinkGoogleAccount = async () => {
-    try {
-      await linkProvider("google", "google_credential_id_token");
-      addToast("success", "Google Account Linked", "Google OAuth provider has been linked.");
-    } catch (err: any) {
-      addToast("error", "Link Provider Failed", err?.message);
-    }
+  const handleLinkGoogleAccount = () => {
+    redirectToGoogleLogin("link");
   };
 
   const handleUnlinkGoogleAccount = async () => {

@@ -3,13 +3,14 @@ import { useAuth } from "@/context/AuthContext";
 import { motion } from "framer-motion";
 import { AuthBackground } from "@/components/auth/AuthBackground";
 import { User, Lock, Mail, UserCheck, Sparkles, ArrowRight, Eye, EyeOff, Check, X } from "lucide-react";
+import { redirectToGoogleLogin } from "@/services/api";
 
 interface RegisterPageProps {
   onToggleLogin: () => void;
 }
 
 export const RegisterPage: React.FC<RegisterPageProps> = ({ onToggleLogin }) => {
-  const { register, loginWithGoogle } = useAuth();
+  const { register } = useAuth();
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -87,16 +88,8 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onToggleLogin }) => 
     }
   };
 
-  const handleGoogleSignup = async () => {
-    setError(null);
-    setIsSubmitting(true);
-    try {
-      await loginWithGoogle("google_oauth_id_token_credential");
-    } catch (err: any) {
-      setError(err?.message || "Google sign-in failed. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleGoogleSignup = () => {
+    redirectToGoogleLogin();
   };
 
   return (

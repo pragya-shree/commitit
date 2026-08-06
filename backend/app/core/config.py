@@ -47,6 +47,12 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # Google OAuth settings
+    GOOGLE_CLIENT_ID: str | None = None
+    GOOGLE_CLIENT_SECRET: str | None = None
+    GOOGLE_REDIRECT_URI: str | None = None
+    FRONTEND_URL: str = "http://localhost:5173"
+
     # Storage settings
     REPO_STORAGE_DIR: str = "repositories"
     DATABASE_URL: str = "sqlite:///commitit.db"

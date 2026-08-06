@@ -1,4 +1,4 @@
-import { apiClient } from "./apiClient";
+import { apiClient, API_BASE_URL } from "./apiClient";
 
 export interface UserResponse {
   id: string;
@@ -91,6 +91,11 @@ export function loginUser(
 
 export function loginWithGoogle(credential: string): Promise<UserResponse> {
   return apiClient.post<UserResponse>("/auth/google", { credential });
+}
+
+export function redirectToGoogleLogin(state?: string): void {
+  const targetUrl = `${API_BASE_URL}/auth/google/login${state ? `?state=${encodeURIComponent(state)}` : ""}`;
+  window.location.href = targetUrl;
 }
 
 export function linkProvider(provider: string, credential: string): Promise<UserResponse> {
