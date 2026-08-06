@@ -76,17 +76,18 @@ def set_auth_cookies(response: Response, user_id: str, remember_me: bool = False
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=False,
-        samesite="lax",
+        secure=True,
+        samesite="none",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
     days = 30 if remember_me else settings.REFRESH_TOKEN_EXPIRE_DAYS
+
     response.set_cookie(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
-        secure=False,
-        samesite="lax",
+        secure=True,
+        samesite="none",
         path="/api/v1/auth/refresh",
         max_age=days * 24 * 60 * 60,
     )
