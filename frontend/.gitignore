@@ -22,3 +22,39 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local databases
+backend/test_commitit.db
+backend/commitit.db
+
+# Benchmark outputs
+backend/benchmark/
+
+# Test repositories
+backend/test_repositories/
+
+# Runtime cloned/analyzed repositories
+backend/repositories/
+
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.*
+!.env.example

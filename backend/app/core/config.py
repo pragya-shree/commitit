@@ -47,6 +47,11 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # Cookie settings
+    COOKIE_SECURE: bool = True
+    COOKIE_SAMESITE: str = "none"
+    COOKIE_DOMAIN: str | None = None
+    
     # Google OAuth settings
     GOOGLE_CLIENT_ID: str | None = None
     GOOGLE_CLIENT_SECRET: str | None = None

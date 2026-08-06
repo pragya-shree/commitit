@@ -8,6 +8,7 @@ import { LoginPage } from "@/pages/LoginPage";
 import { RegisterPage } from "@/pages/RegisterPage";
 import { UserProfileModal } from "@/components/auth/UserProfileModal";
 import { WelcomeOnboardingModal } from "@/components/auth/WelcomeOnboardingModal";
+import { Footer } from "@/components/footer";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { getKnowledge } from "@/services/api";
 import {
@@ -423,6 +424,8 @@ function AppContent() {
           </>
         )}
       </main>
+
+      <Footer onNavigate={handleSetView} activeRepositoryId={activeRepository?.id} />
 
       {showUserProfileModal && (
         <UserProfileModal onClose={() => setShowUserProfileModal(false)} />
