@@ -44,7 +44,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, activeRepositoryId }
   };
 
   return (
-    <footer className="relative z-10 w-full mt-24 border-t border-white/[0.08] bg-void-950/90 backdrop-blur-2xl text-slate-300 font-body">
+    <footer className="relative z-10 w-full mt-auto mt-16 border-t border-white/[0.08] bg-void-950/90 backdrop-blur-2xl text-slate-300 font-body">
       {/* Decorative top ambient glow line */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 max-w-4xl h-[1px] bg-gradient-to-r from-transparent via-coral/30 to-transparent pointer-events-none" />
 

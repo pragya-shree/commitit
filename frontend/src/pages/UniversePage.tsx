@@ -149,7 +149,7 @@ export function UniversePage({ repositoryId }: UniversePageProps) {
   }, []);
 
   return (
-    <div className="relative h-[calc(100vh-5rem)] w-full overflow-hidden flex items-center justify-center p-4 sm:p-6">
+    <div className="relative min-h-[calc(100vh-5rem)] w-full flex-1 flex flex-col items-center justify-center p-4 sm:p-6 py-12">
       {knowledgeRequest.loading && <LoadingState message="Loading the repository universe…" />}
 
       {knowledgeRequest.error && !knowledgeRequest.loading && (

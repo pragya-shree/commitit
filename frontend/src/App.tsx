@@ -164,7 +164,7 @@ function AppContent() {
   }
 
   return (
-    <>
+    <div className="flex min-h-screen flex-col relative bg-void-950 text-slate-100">
       <AnimatedBackground />
 
       {/* Floating Glass Boxed Header */}
@@ -377,7 +377,7 @@ function AppContent() {
         </div>
       </header>
 
-      <main className="relative z-10 pt-20">
+      <main className="flex-1 relative z-10 pt-20 flex flex-col">
         {view === "login" && <LoginPage onToggleRegister={() => handleSetView("register")} />}
         {view === "register" && <RegisterPage onToggleLogin={() => handleSetView("login")} />}
 
@@ -437,7 +437,7 @@ function AppContent() {
           onImportRepo={() => handleSetView("landing")}
         />
       )}
-    </>
+    </div>
   );
 }
 
